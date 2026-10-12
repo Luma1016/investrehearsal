@@ -5,6 +5,6 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "https://stockrehearsal.netlify.app"
+  to = "https://invest-rehearsal-api.onrender.com/api/:splat"
   status = 200
   force = true

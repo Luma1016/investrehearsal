@@ -166,15 +166,27 @@ router.post('/stocks', (req, res) => {
   res.status(201).json(db.prepare('SELECT code, name, cur_price, status, updated_at FROM stocks WHERE code = ?').get(c));
 });
 
-// PUT /api/admin/stocks/:code {name?, status?} (이름 수정/정상·정지 관리 + 자동공시)
+// PUT /api/admin/stocks/:code {name?, status?, new_code?} (이름·코드 수정/정상·정지 관리 + 자동공시)
+// 코드 변경 시 보유·거래·게시글·공지·이벤트·시세로그의 참조를 한 트랜잭션으로 함께 이전
 router.put('/stocks/:code', (req, res) => {
   const s = db.prepare('SELECT * FROM stocks WHERE code = ?').get(req.params.code);
   if (!s) return res.status(404).json({ error: 'NOT_FOUND' });
-  const { name, status } = req.body || {};
+  const { name, status, new_code } = req.body || {};
   const updates = [];
   const params = [];
   let renamed = null;
   let statusChanged = null;
+  let recoded = null;
+  if (new_code !== undefined) {
+    const nc = String(new_code).trim().toUpperCase();
+    if (!/^[A-Z0-9]{2,10}$/.test(nc)) return res.status(400).json({ error: 'INVALID_CODE' });
+    if (nc !== s.code) {
+      if (db.prepare('SELECT code FROM stocks WHERE code = ?').get(nc)) {
+        return res.status(409).json({ error: 'ALREADY_EXISTS' });
+      }
+      recoded = [s.code, nc];
+    }
+  }
   if (name !== undefined) {
     const n = String(name).trim();
     if (n.length < 1 || n.length > 30) return res.status(400).json({ error: 'INVALID_NAME' });
@@ -192,21 +204,38 @@ router.put('/stocks/:code', (req, res) => {
       statusChanged = [s.status, status];
     }
   }
-  if (!updates.length) return res.status(400).json({ error: 'NO_CHANGES' });
+  if (!updates.length && !recoded) return res.status(400).json({ error: 'NO_CHANGES' });
   updates.push("updated_at = datetime('now','localtime')");
-  db.prepare(`UPDATE stocks SET ${updates.join(', ')} WHERE code = ?`).run(...params, s.code);
+  const finalCode = recoded ? recoded[1] : s.code;
+  const tx = db.transaction(() => {
+    if (recoded) {
+      // FK 즉시검사 회피: 새 행 INSERT → 자식 이전 → 旧 행 DELETE (셋 중 하나라도 어긋나면 전체 롤백)
+      db.prepare(`INSERT INTO stocks (code, name, cur_price, status, updated_at)
+        SELECT ?, name, cur_price, status, updated_at FROM stocks WHERE code = ?`)
+        .run(finalCode, s.code);
+      for (const t of ['holdings', 'transactions', 'posts', 'notices', 'stock_events', 'price_logs']) {
+        db.prepare(`UPDATE ${t} SET stock_code = ? WHERE stock_code = ?`).run(finalCode, s.code);
+      }
+      db.prepare('DELETE FROM stocks WHERE code = ?').run(s.code);
+    }
+    if (updates.length) {
+      db.prepare(`UPDATE stocks SET ${updates.join(', ')} WHERE code = ?`).run(...params, finalCode);
+    }
+  });
+  tx();
   const desc = [
+    recoded ? `코드 ${recoded[0]} → ${recoded[1]}` : null,
     renamed ? `이름 ${renamed[0]} → ${renamed[1]}` : null,
     statusChanged ? `상태 ${statusChanged[0]} → ${statusChanged[1]}` : null,
   ].filter(Boolean).join(', ');
   autoNotice({
     scope: '종목',
-    stock_code: s.code,
-    title: `[공시] ${s.code} 종목 정보 변경`,
-    body: `관리자가 ${s.code} 정보를 변경했습니다. (${desc})`,
+    stock_code: finalCode,
+    title: `[공시] ${finalCode} 종목 정보 변경`,
+    body: `관리자가 ${recoded ? recoded[0] : finalCode} 정보를 변경했습니다. (${desc})`,
     by_admin: req.user.id,
   });
-  res.json(db.prepare('SELECT code, name, cur_price, status, updated_at FROM stocks WHERE code = ?').get(s.code));
+  res.json(db.prepare('SELECT code, name, cur_price, status, updated_at FROM stocks WHERE code = ?').get(finalCode));
 });
 
 // POST /api/admin/stocks/:code/price {price, reason?} (직접조작 + price_logs + 자동공시)
@@ -239,6 +268,28 @@ router.get('/price-logs', (req, res) => {
     return res.json(db.prepare('SELECT * FROM price_logs WHERE cause = ? ORDER BY id DESC LIMIT 100').all(cause));
   }
   res.json(db.prepare('SELECT * FROM price_logs ORDER BY id DESC LIMIT 100').all());
+});
+
+// POST /api/admin/price-logs/reset (과거 시세 기록 초기화: 종목별 현재가 SEED 1건만 남김, 되돌릴 수 없음)
+// holdings·transactions·asset_history(사용자 자산)는 건드리지 않음
+router.post('/price-logs/reset', (req, res) => {
+  const stocks = db.prepare('SELECT code, cur_price FROM stocks').all();
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM price_logs').run();
+    const ins = db.prepare(
+      "INSERT INTO price_logs (stock_code, prev, next, cause, by_admin) VALUES (?,?,?,'SEED',?)"
+    );
+    for (const s of stocks) ins.run(s.code, s.cur_price, s.cur_price, req.user.id);
+  });
+  tx();
+  autoNotice({
+    scope: '전체',
+    stock_code: null,
+    title: '[공시] 시세 기록 초기화',
+    body: `관리자가 과거 시세 기록을 초기화했습니다. (${stocks.length}종목, 현재가 기준, 이후 1분마다 새 기록 누적)`,
+    by_admin: req.user.id,
+  });
+  res.json({ ok: true, stocks: stocks.length });
 });
 
 module.exports = router;

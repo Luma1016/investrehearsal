@@ -35,7 +35,7 @@
       <p style="font-size:12.5px;color:var(--muted)" id="cashLine">주식 살 수 있는 돈 확인 중...</p>
     </div>
     <div class="panel">
-      <div style="display:flex;align-items:center"><h2>캔들차트 + 거래량</h2><div class="period" id="bucket" style="margin:0 0 0 auto"><button class="on" data-b="60">1분</button><button data-b="300">5분</button><button data-b="86400">1일</button></div></div>
+      <div style="display:flex;align-items:center"><h2>캔들차트 + 거래량</h2><div class="period" id="bucket" style="margin:0 0 0 auto"><button data-b="60">1분</button><button class="on" data-b="300">5분</button><button data-b="86400">1일</button></div></div>
       <canvas id="candle" width="700" height="260"></canvas>
       <p style="font-size:12px;color:var(--muted)" id="range"></p>
     </div>
@@ -76,7 +76,7 @@
 const code = new URLSearchParams(location.search).get('code');
 if (!code) location.href = '/stocks.html';
 let cur = null, myCash = 0, myQty = 0, myAvg = null, allPts = [], trades = [], candles = [];
-let bucketSec = 60, sheetSide = 'buy', sheetMode = 'qty';
+let bucketSec = 300, sheetSide = 'buy', sheetMode = 'qty';
 // 실시간 캔들 기준가: 마지막 서버 확정가(anchor) + 화면 표시용 라이브가(live)
 let anchorPrice = null, livePrice = null;
 const MICRO_RANGE = 0.0015, MEAN_REVERT = 0.3, MICRO_CAP = 0.005;
@@ -112,17 +112,30 @@ function draw() {
   const PH = 170, VH = 60, PT = 8, VT = 192;
   let hi = -Infinity, lo = Infinity, vmax = 0;
   for (const c of candles) { hi = Math.max(hi, c.h); lo = Math.min(lo, c.l); vmax = Math.max(vmax, c.v); }
-  const rg = (hi - lo) || 1;
+  // Y축 여백: 봉이 위아래에 붙어 납작해지지 않도록 상하 15% + 최소 0.4% 보장
+  const rawRg = (hi - lo) || 1;
+  const pad = Math.max(rawRg * 0.15, hi * 0.002);
+  hi += pad; lo = Math.max(1, lo - pad);
+  const rg = hi - lo;
   const Y = (p) => PT + (1 - (p - lo) / rg) * PH;
   ctx.strokeStyle = '#EEF0F3'; ctx.lineWidth = 1;
   for (let g = 0; g < 4; g++) { const y = PT + PH * g / 3; ctx.beginPath(); ctx.moveTo(52, y); ctx.lineTo(700, y); ctx.stroke(); }
-  const n = candles.length, slot = (700 - 52) / n, bw = Math.max(2, Math.min(14, slot * 0.6));
+  const n = candles.length, slot = (700 - 52) / n, bw = Math.max(3, Math.min(18, slot * 0.65));
   candles.forEach((c, i) => {
     const x = 52 + slot * i + slot / 2, col = c.c >= c.o ? UP : DOWN;
     ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(x, Y(c.h)); ctx.lineTo(x, Y(c.l)); ctx.stroke();
-    const yO = Y(c.o), yC = Y(c.c), top = Math.min(yO, yC);
-    ctx.fillRect(x - bw / 2, top, bw, Math.max(1.5, Math.abs(yC - yO)));
+    // 꼬리: 고가-저가 수직선 (봉에 점이 1개뿐이어도 최소 표시)
+    const yH = Y(c.h), yL = Y(c.l);
+    ctx.beginPath(); ctx.moveTo(x, yH); ctx.lineTo(x, Math.max(yL, yH + 1)); ctx.stroke();
+    // 몸통: 시가-종가 꽉 채우기, 도지(시가≈종가)는 십자 틱으로
+    const yO = Y(c.o), yC = Y(c.c), top = Math.min(yO, yC), bh = Math.abs(yC - yO);
+    if (bh < 2) {
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x - bw / 2 - 2, top); ctx.lineTo(x + bw / 2 + 2, top); ctx.stroke();
+      ctx.lineWidth = 1.5;
+    } else {
+      ctx.fillRect(x - bw / 2, top, bw, bh);
+    }
     if (vmax > 0) { const vh = Math.max(1, c.v / vmax * VH); ctx.globalAlpha = 0.75; ctx.fillRect(x - bw / 2, VT + VH - vh, bw, vh); ctx.globalAlpha = 1; }
   });
   const last = candles[candles.length - 1].c;
@@ -161,8 +174,13 @@ function renderHead() {
   const first = candles[0], last = candles[candles.length - 1];
   const d = last.c - first.o, r = first.o ? d / first.o * 100 : 0;
   const el = document.getElementById('chgLine');
-  el.textContent = `${d >= 0 ? '+' : ''}${d.toLocaleString()}원 (${r >= 0 ? '+' : ''}${r.toFixed(2)}%) 첫봉 시가 대비`;
-  el.style.color = d >= 0 ? UP : DOWN;
+  if (cur.status === '정지') {
+    el.textContent = '거래정지 중 · 차트 고정';
+    el.style.color = '#8B95A1';
+  } else {
+    el.textContent = `${d >= 0 ? '+' : ''}${d.toLocaleString()}원 (${r >= 0 ? '+' : ''}${r.toFixed(2)}%) 첫봉 시가 대비`;
+    el.style.color = d >= 0 ? UP : DOWN;
+  }
   let hi = -Infinity, lo = Infinity;
   for (const c of candles) { hi = Math.max(hi, c.h); lo = Math.min(lo, c.l); }
   const allP = allPts.map(p => p.price);
@@ -304,6 +322,7 @@ setInterval(() => { load(false); }, 20000);
 // 마이크로틱(2초): 폴링 사이 진행 중 봉의 고/저/종가만 미세 변동 → 차트가 살아 움직이게
 setInterval(() => {
   if (!cur || !candles.length || anchorPrice == null || livePrice == null) return;
+  if (cur.status === '정지') return; // 정지 종목은 서버 시세·차트 모두 동결
   const drift = (Math.random() - 0.5) * 2 * MICRO_RANGE * anchorPrice;
   let np = Math.round(livePrice + drift + (anchorPrice - livePrice) * MEAN_REVERT);
   const cap = anchorPrice * MICRO_CAP;

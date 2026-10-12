@@ -1,0 +1,3 @@
+# /api/* 는 Render 백엔드로 프록시 (same-origin 유지 → 세션쿠키 그대로 동작)
+# publish 폴더 직하위에 두면 netlify.toml 인식 여부와 무관하게 항상 적용됨
+/api/*  https://invest-rehearsal-api.onrender.com/api/:splat  200

@@ -47,6 +47,8 @@
         <button class="btn" id="pxBtn">가격 조정</button>
         <h2 style="margin-top:16px">조작로그</h2>
         <table><tr><th>종목</th><th>이전</th><th>이후</th><th>사유</th><th>일시</th></tr><tbody id="logRows"></tbody></table>
+        <button class="btn" id="logReset" style="margin-top:10px">과거 시세 기록 초기화 (되돌릴 수 없음)</button>
+        <p style="font-size:11.5px;color:var(--muted);margin-top:6px">종목별 현재가 1건만 남기고 전체 삭제 · 보유·거래·자산 기록은 유지 · 이후 1분마다 새 기록 누적</p>
       </div>
       <div id="t2" style="margin-top:12px;display:none">
         <h2>공지 작성</h2>
@@ -64,6 +66,8 @@
         <div class="search"><input id="sCode" placeholder="코드 (영문대문자·숫자 2~10자)" style="max-width:170px"><input id="sName" placeholder="종목 이름" style="max-width:170px"><input id="sPrice" type="number" placeholder="상장가 (100원 이상)" style="max-width:150px"><button class="follow-btn" id="sAdd">추가</button></div>
         <h2 style="margin-top:16px">종목 이름 수정·상태 관리</h2>
         <table><tr><th>코드</th><th>이름</th><th>현재가</th><th>상태</th><th>보유자·거래량</th><th></th></tr><tbody id="sRows"></tbody></table>
+        <h2 style="margin-top:16px">종목 코드 변경 (보유·거래·게시글 함께 이전)</h2>
+        <div class="search"><input id="cOld" placeholder="기존 코드" style="max-width:150px"><input id="cNew" placeholder="새 코드 (대문자·숫자 2~10자)" style="max-width:190px"><button class="follow-btn" id="cBtn">코드 변경</button></div>
       </div>
     </div>
   </main>
@@ -122,6 +126,19 @@ document.getElementById('bDel').onclick = async () => { if (!confirm('삭제할�
 document.getElementById('sAdd').onclick = async () => {
   try { await api('/api/admin/stocks', 'POST', { code: document.getElementById('sCode').value.trim(), name: document.getElementById('sName').value.trim(), cur_price: Number(document.getElementById('sPrice').value) }); toast('종목 추가됨 · 공시 발행'); loadAll(); }
   catch (e) { toast('추가 실패: ' + e.message); }
+};
+document.getElementById('logReset').onclick = async () => {
+  if (!confirm('과거 시세 기록을 모두 지울까요? 종목별 현재가 1건만 남습니다.')) return;
+  if (!confirm('정말 초기화합니다. 되돌릴 수 없습니다.')) return;
+  try { const r = await api('/api/admin/price-logs/reset', 'POST'); toast(`시세 기록 초기화됨 (${r.stocks}종목)`); loadAll(); }
+  catch (e) { toast('초기화 실패: ' + e.message); }
+};
+document.getElementById('cBtn').onclick = async () => {
+  const oldC = document.getElementById('cOld').value.trim(), newC = document.getElementById('cNew').value.trim();
+  if (!oldC || !newC) return toast('기존 코드와 새 코드를 입력해 주세요');
+  if (!confirm(`${oldC} → ${newC}로 코드를 변경할까요? 보유·거래·게시글이 함께 이전됩니다.`)) return;
+  try { const r = await api(`/api/admin/stocks/${encodeURIComponent(oldC)}`, 'PUT', { new_code: newC }); toast(`코드 변경됨 ${oldC} → ${r.code} · 공시 발행`); loadAll(); }
+  catch (e) { toast('변경 실패: ' + e.message); }
 };
 document.getElementById('logout').onclick = async (e) => { e.preventDefault(); await api('/api/auth/logout', 'POST'); location.href = '/login.html'; };
 </script>
