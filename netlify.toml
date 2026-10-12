@@ -1,0 +1,10 @@
+# Netlify: public/ 정적 호스팅 + /api/* 는 상시 백엔드로 프록시 (same-origin 유지 → 세션쿠키 그대로 동작)
+# BACKEND_URL을 Render/Railway 백엔드 주소로 교체할 것 (예: https://invest-rehearsal.onrender.com)
+[build]
+  publish = "public"
+
+[[redirects]]
+  from = "/api/*"
+  to = "https://stockrehearsal.netlify.app"
+  status = 200
+  force = true

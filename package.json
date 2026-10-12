@@ -1,0 +1,19 @@
+{
+  "name": "invest-rehearsal",
+  "version": "0.1.0",
+  "description": "Invest REhearsal MVP - Express + SQLite + Vanilla",
+  "main": "src/server.js",
+  "engines": {
+    "node": "20.x"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^12.11.1",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0"
+  }
+}

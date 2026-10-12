@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>모의스톡 MY</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>모의스톡 <span>MY</span></h1>
+    <p class="sub">첫투자도 헤매지 않는 모의투자 · 수수료 0원 · 시장가 단일가</p>
+    <button class="btn" onclick="location.href='/login.html'">로그인</button>
+    <button class="btn-ghost" onclick="location.href='/signup.html'">회원가입 (1,000만원 지급)</button>
+    <p class="caption">기본 화면 = MY 홈 · 1단계: Auth + Static 서빙</p>
+  </div>
+</div>
+<script src="/app.js"></script>
+<script>
+fetch('/api/auth/me', { credentials: 'include' }).then(r => {
+  if (r.ok) location.href = '/dashboard.html';
+});
+</script>
+</body>
+</html>

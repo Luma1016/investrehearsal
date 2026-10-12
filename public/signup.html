@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>회원가입 - 모의스톡 MY</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>모의스톡 <span>MY</span></h1>
+    <p class="sub">가입 즉시 예수금 10,000,000원 지급</p>
+    <div class="err" id="err"></div>
+    <label>이메일</label>
+    <input id="email" type="email" placeholder="you@example.com">
+    <label>닉네임 (2~12자)</label>
+    <input id="nickname" maxlength="12" placeholder="주린이토끼">
+    <label>비밀번호 (4자 이상)</label>
+    <input id="pw" type="password" placeholder="비밀번호">
+    <button class="btn" id="btn">가입하고 시작하기</button>
+    <button class="btn-ghost" onclick="location.href='/login.html'">이미 계정이 있어요</button>
+  </div>
+</div>
+<script src="/app.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+$('btn').onclick = async () => {
+  $('err').style.display = 'none';
+  try {
+    await api('/api/auth/signup', 'POST', { email: $('email').value.trim(), pw: $('pw').value, nickname: $('nickname').value.trim() });
+    location.href = '/dashboard.html';
+  } catch (e) { const el = $('err'); el.textContent = '가입 실패: ' + e.message; el.style.display = 'block'; }
+};
+</script>
+</body>
+</html>

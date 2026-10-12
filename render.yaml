@@ -1,0 +1,22 @@
+# Render 상시 백엔드 (Express + SQLite + 시세루프) - Blueprint
+# 사용: Render Dashboard > New > Blueprint > 이 저장소 선택
+# 주의: 무료 플랜은 비활성 시 슬립(24시간 상시 아님). 진짜 24시간 + DB 유지는 Starter 이상 + Disk 필요.
+services:
+  - type: web
+    name: invest-rehearsal-api
+    runtime: node
+    plan: free # 24시간 상시+영속DB는 starter 이상 권장
+    buildCommand: npm install
+    startCommand: node src/server.js
+    envVars:
+      - key: NODE_VERSION
+        value: 20.19.0
+      - key: SESSION_SECRET
+        generateValue: true
+      # 영속 디스크(유료 플랜) 사용 시 주석 해제 + DB_PATH를 마운트 경로로 지정
+      # - key: DB_PATH
+      #   value: /var/data/db.sqlite
+    # disk:
+    #   name: sqlite-data
+    #   mountPath: /var/data
+    #   sizeGB: 1

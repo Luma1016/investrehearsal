@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A안 - 버블팝 게이미피케이션</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Pretendard','Apple SD Gothic Neo',sans-serif}
+body{background:#FFF7ED;display:flex;justify-content:center;padding:24px}
+.phone{width:390px;background:#FFFEFB;border-radius:36px;overflow:hidden;box-shadow:0 20px 60px rgba(255,120,80,.25);border:4px solid #1A1A1A}
+.header{background:#1A1A1A;color:#fff;padding:18px 20px;display:flex;justify-content:space-between;align-items:center}
+.header .logo{font-weight:900;font-size:18px}.header .logo span{color:#FFD93D}
+.streak{background:#FFD93D;color:#1A1A1A;font-weight:800;font-size:12px;padding:6px 12px;border-radius:999px}
+.hero{padding:20px;background:linear-gradient(135deg,#FF6B9D,#FF9F43,#FFD93D)}
+.hero-card{background:#fff;border:3px solid #1A1A1A;border-radius:24px;padding:18px;box-shadow:5px 5px 0 #1A1A1A}
+.hero-card small{font-weight:800;color:#FF6B9D;letter-spacing:1px}
+.hero-card h1{font-size:28px;margin:4px 0}.hero-card h1 b{color:#22C55E}
+.level-bar{height:14px;background:#F1F1F1;border-radius:999px;margin-top:12px;border:2px solid #1A1A1A;overflow:hidden}
+.level-fill{height:100%;width:72%;background:linear-gradient(90deg,#FF6B9D,#FFD93D);border-radius:999px}
+.level-txt{font-size:12px;font-weight:800;margin-top:6px}
+.grid{padding:16px 20px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card{background:#fff;border:3px solid #1A1A1A;border-radius:20px;padding:14px;box-shadow:4px 4px 0 #1A1A1A}
+.card h3{font-size:13px}.card .price{font-size:20px;font-weight:900;margin:4px 0}
+.up{color:#22C55E;font-weight:900}.down{color:#EF4444;font-weight:900}
+.tag{display:inline-block;font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;border:2px solid #1A1A1A;margin-bottom:6px}
+.mission{margin:0 20px 16px;background:#E0F2FE;border:3px solid #1A1A1A;border-radius:20px;padding:14px;box-shadow:4px 4px 0 #1A1A1A}
+.mission li{font-size:13px;font-weight:700;list-style:none;margin:6px 0}
+.btn{margin:0 20px 20px;background:#1A1A1A;color:#FFD93D;font-weight:900;font-size:16px;text-align:center;padding:15px;border-radius:18px}
+.nav{display:flex;background:#fff;border-top:3px solid #1A1A1A;padding:12px}.nav div{flex:1;text-align:center;font-size:22px}.nav small{display:block;font-size:10px;font-weight:800}
+</style>
+</head>
+<body>
+<div class="phone">
+<div class="header"><div class="logo">모의<span>STOCK</span> 팡팡 🎮</div><div class="streak">🔥 7일 연속!</div></div>
+<div class="hero"><div class="hero-card"><small>MY LEVEL • 주린이 탈출 D-3</small><h1>₩12,450,000 <b>+24.5%</b></h1><div class="level-bar"><div class="level-fill"></div></div><div class="level-txt">Lv.7 개미 → Lv.8 슈퍼개미까지 28,000P 남음!</div></div></div>
+<div class="grid">
+<div class="card"><span class="tag" style="background:#FFD93D">🔥 밈주식 1위</span><h3>🍗 치킨왕국</h3><div class="price">45,200원</div><div class="up">▲ +8.2%</div></div>
+<div class="card"><span class="tag" style="background:#C4B5FD">💜 Z세대 PICK</span><h3>🎧 아이돌엔터</h3><div class="price">32,150원</div><div class="up">▲ +5.1%</div></div>
+<div class="card"><span class="tag" style="background:#FECACA">📉 저점찬스?</span><h3>🕹️ 게임월드</h3><div class="price">18,900원</div><div class="down">▼ -2.3%</div></div>
+<div class="card"><span class="tag" style="background:#BBF7D0">🌱 첫투자 추천</span><h3>🥤 버블티랩</h3><div class="price">12,300원</div><div class="up">▲ +1.4%</div></div>
+</div>
+<div class="mission"><b>📝 오늘의 미션</b><ul><li>✅ 출석체크 (+500P)</li><li>✅ 모의매수 1회 해보기 (+1,000P)</li><li>⬜ 친구 수익률 구경하기 (+500P)</li></ul></div>
+<div class="btn">🎁 1,000만원으로 시작하기</div>
+<div class="nav"><div>🏠<small>홈</small></div><div>📈<small>종목</small></div><div>🏆<small>랭킹</small></div><div>💬<small>수다방</small></div><div>🙂<small>MY</small></div></div>
+</div>
+</body>
+</html>

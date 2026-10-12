@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MY 중심 클린 디자인 - 스마트폰 대표 화면</title>
+<style>
+:root{
+  --bg:#F7F8FA; --card:#fff; --ink:#111827; --muted:#6B7280; --faint:#9CA3AF;
+  --line:#E5E7EB; --accent:#4F46E5; --accent-bg:#EEF2FF;
+  --green:#15803D; --green-bg:#F0FDF4; --red:#DC2626;
+}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Pretendard','Apple SD Gothic Neo',sans-serif}
+body{background:#E8EAEE;display:flex;justify-content:center;padding:24px}
+.phone{width:390px;height:844px;background:var(--bg);border-radius:30px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.2);display:flex;flex-direction:column}
+.top{display:flex;justify-content:space-between;align-items:center;padding:18px 18px 10px;background:var(--bg)}
+.top b{font-size:17px}.top span{font-size:18px;color:var(--muted)}
+.body{flex:1;overflow-y:auto;padding:0 14px 14px;scrollbar-width:none}.body::-webkit-scrollbar{display:none}
+/* Profile */
+.me{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;gap:12px;align-items:center}
+.av{width:48px;height:48px;border-radius:50%;background:var(--accent-bg);display:flex;align-items:center;justify-content:center;font-size:24px;border:1px solid var(--line);flex-shrink:0}
+.me h1{font-size:16px}.me p{font-size:12px;color:var(--muted);margin-top:2px}
+.lv{font-size:10px;font-weight:800;background:var(--accent-bg);color:var(--accent);padding:3px 8px;border-radius:999px;margin-left:6px}
+/* Asset hero */
+.hero{background:var(--ink);color:#fff;border-radius:16px;padding:18px;margin-top:12px}
+.hero span{font-size:11px;color:#B7B9C7;font-weight:700;letter-spacing:.5px}
+.hero h2{font-size:27px;margin:4px 0;letter-spacing:-.5px}.hero h2 small{font-size:13px;color:#A7F3D0}
+.hero .row{display:flex;gap:8px;margin-top:12px}
+.hero .kpi{flex:1;background:rgba(255,255,255,.09);border-radius:11px;padding:10px;text-align:center}
+.hero .kpi b{font-size:13.5px;display:block}.hero .kpi span{font-size:10px}
+/* Segment */
+.seg{display:flex;background:#ECEEF2;border-radius:11px;padding:3px;margin:12px 0;position:sticky;top:0;z-index:2}
+.seg button{flex:1;border:none;background:none;font-size:13px;font-weight:800;color:var(--muted);padding:9px;border-radius:8px;cursor:pointer}
+.seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.1)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 15px;margin-bottom:12px}
+.card h3{font-size:13.5px;display:flex;justify-content:space-between;align-items:center}
+.card h3 a{font-size:11.5px;color:var(--muted);text-decoration:none;font-weight:700}
+svg{width:100%;height:120px;margin-top:8px}
+.hold{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid #F1F2F4}
+.hold:last-child{border:none}
+.dot{width:38px;height:38px;border-radius:11px;background:#F3F4F6;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+.hold b{font-size:13.5px}.hold small{font-size:11.5px;color:var(--muted)}
+.pill{margin-left:auto;font-size:11.5px;font-weight:800;text-align:right}
+.post{border:1px solid var(--line);border-radius:11px;padding:11px;font-size:13px;line-height:1.5;margin-top:8px}
+.post small{color:var(--muted);font-size:11px}
+.bnav{display:flex;border-top:1px solid var(--line);background:#fff;padding:10px 4px 14px}
+.bnav button{flex:1;border:none;background:none;font-size:20px;color:var(--faint);cursor:pointer}
+.bnav button.on{color:var(--ink)}.bnav small{display:block;font-size:10px;font-weight:800}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="phone">
+<div class="top"><b>MY 홈</b><span>🔔 ⚙</span></div>
+<div class="body">
+
+<div class="me"><div class="av">🐰</div><div><h1>주린이토끼<span class="lv">Lv.4</span></h1><p>10대 리그 128위 · 3연승 중</p></div></div>
+
+<div class="hero">
+<span>TOTAL ASSET</span>
+<h2>11,872,400원 <small>+18.7%</small></h2>
+<div class="row">
+<div class="kpi"><b>1,087,000원</b><span>주식 평가액</span></div>
+<div class="kpi"><b>10,785,400원</b><span>예수금</span></div>
+<div class="kpi"><b>128위 ▲12</b><span>챌린지 순위</span></div>
+</div>
+</div>
+
+<div class="seg">
+<button class="on" data-t="t1">자산</button>
+<button data-t="t2">보유 3</button>
+<button data-t="t3">내 글</button>
+</div>
+
+<div id="t1">
+<div class="card"><h3>자산 추이 · 최근 14일 <a href="#">전체 →</a></h3>
+<svg viewBox="0 0 340 120"><line x1="0" y1="30" x2="340" y2="30" stroke="#EEF0F3"/><line x1="0" y1="60" x2="340" y2="60" stroke="#EEF0F3"/><line x1="0" y1="90" x2="340" y2="90" stroke="#EEF0F3"/>
+<defs><linearGradient id="m" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4F46E5" stop-opacity=".18"/><stop offset="1" stop-color="#4F46E5" stop-opacity="0"/></linearGradient></defs>
+<path d="M0,100 L30,96 L60,98 L90,86 L120,88 L150,76 L180,80 L210,64 L240,68 L270,54 L300,58 L340,40 L340,120 L0,120Z" fill="url(#m)"/>
+<polyline points="0,100 30,96 60,98 90,86 120,88 150,76 180,80 210,64 240,68 270,54 300,58 340,40" fill="none" stroke="#4F46E5" stroke-width="2.5" stroke-linecap="round"/>
+<circle cx="300" cy="58" r="4" fill="#4F46E5"/></svg>
+<p style="font-size:11.5px;color:var(--muted);margin-top:6px">하루 1회 스냅샷 기준 · 수수료 0원 반영됨</p></div>
+<div class="card"><h3>용돈 100만원 챌린지 <a href="#">랭킹 →</a></h3>
+<p style="font-size:12.5px;margin-top:8px"><b>D-2 · 2,341명 참여</b> <span style="color:var(--accent);font-weight:800">내 순위 128위 (상위 6%)</span></p>
+<div style="height:8px;background:#EEF2FF;border-radius:99px;margin-top:10px"><div style="width:64%;height:100%;background:var(--accent);border-radius:99px"></div></div></div>
+</div>
+
+<div id="t2" class="hidden">
+<div class="card"><h3>보유 종목 <a href="#">주문 →</a></h3>
+<div class="hold"><div class="dot">🍗</div><div><b>치킨왕국 · 10주</b><br><small>평단 41,600 → 45,200원</small></div><div class="pill" style="color:var(--green)">+36,000원<br><small>+8.7%</small></div></div>
+<div class="hold"><div class="dot">🎧</div><div><b>아이돌엔터 · 20주</b><br><small>평단 29,550 → 32,150원</small></div><div class="pill" style="color:var(--green)">+52,000원<br><small>+8.8%</small></div></div>
+<div class="hold"><div class="dot">🥤</div><div><b>버블티랩 · 2주</b><br><small>평단 12,100 → 12,300원</small></div><div class="pill" style="color:var(--green)">+400원<br><small>+1.7%</small></div></div>
+</div>
+</div>
+
+<div id="t3" class="hidden">
+<div class="card"><h3>내가 쓴 글 <a href="#">게시판 →</a></h3>
+<div class="post"><b>생애 첫 주식 샀다! 버블티랩 2주</b><br><small>15분 전 · 좋아요 356 · 댓글 41</small></div>
+<div class="post"><b>치킨왕국 따라사기 후기</b><br><small>2일 전 · 좋아요 128 · 댓글 19</small></div>
+</div>
+<div class="card"><h3>관심 종목 차트 <a href="#">탐색 →</a></h3>
+<div class="post">🍗 <b>치킨왕국 45,200원</b> <span style="color:var(--green);font-weight:800">+8.2%</span><br><small>팔로우 중인 호랑이님이 보유 중</small></div>
+</div>
+</div>
+
+</div>
+<div class="bnav">
+<button class="on">◉<small>MY</small></button>
+<button>♡<small>피드</small></button>
+<button>▦<small>탐색</small></button>
+<button>🏆<small>챌린지</small></button>
+</div>
+</div>
+<script>
+document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.seg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  ['t1','t2','t3'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  document.getElementById(b.dataset.t).classList.remove('hidden');
+});
+document.querySelectorAll('.bnav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.bnav button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+});
+</script>
+</body>
+</html>

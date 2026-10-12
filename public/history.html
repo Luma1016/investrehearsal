@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>거래내역 - 모의스톡 MY</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="logo">모의스톡 <span>MY</span></div>
+    <div class="nav">
+      <a href="/dashboard.html">◉ MY 홈</a>
+      <a href="/board.html">♡ 피드</a>
+      <a href="/stocks.html">▦ 종목 탐색</a>
+      <a href="/dashboard.html">🏆 챌린지</a>
+      <small>MENU</small>
+      <a href="/portfolio.html">📊 포트폴리오</a>
+      <a class="on" href="/history.html">🧾 거래내역</a>
+      <a href="#" id="logout">⚙ 로그아웃</a>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="panel">
+      <h2>거래내역</h2>
+      <div class="search"><input id="code" placeholder="종목코드 (예: CHKN)"><input id="type" placeholder="BUY/SELL" style="max-width:110px"><button class="follow-btn" id="btn">조회</button></div>
+      <table><tr><th>일시</th><th>종목</th><th>구분</th><th>수량</th><th>체결가</th><th>손익</th></tr><tbody id="rows"></tbody></table>
+    </div>
+  </main>
+  <div class="rail"><div class="mini"><h3>안내</h3><p style="font-size:12.5px;color:var(--muted)">수수료 0원 · 손익은 매도 시에만 기록</p></div></div>
+</div>
+<script src="/app.js"></script>
+<script>
+async function load() {
+  const c = document.getElementById('code').value.trim(), t = document.getElementById('type').value.trim().toUpperCase();
+  let q = [];
+  if (c) q.push('code=' + encodeURIComponent(c));
+  if (t === 'BUY' || t === 'SELL') q.push('type=' + t);
+  const list = await api('/api/history' + (q.length ? '?' + q.join('&') : ''));
+  document.getElementById('rows').innerHTML = list.map(h => `<tr><td>${h.created_at}</td><td>${h.stock_code}</td><td>${h.side}</td><td>${h.qty}주</td><td>${fmt(h.price)}</td><td>${h.pnl == null ? '-' : `<span class="pill ${h.pnl >= 0 ? 'p-green' : 'p-red'}">${h.pnl.toLocaleString()}원</span>`}</td></tr>`).join('') || '<tr><td colspan=6 style="color:var(--muted)">내역 없음</td></tr>';
+}
+document.getElementById('btn').onclick = load;
+document.getElementById('logout').onclick = async (e) => { e.preventDefault(); await api('/api/auth/logout', 'POST'); location.href = '/login.html'; };
+load();
+</script>
+</body>
+</html>

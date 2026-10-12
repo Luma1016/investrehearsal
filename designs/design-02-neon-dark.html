@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>B안 - 네온 다크 트레이딩</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Pretendard','Apple SD Gothic Neo',monospace}
+body{background:#0B0E1A;display:flex;justify-content:center;padding:24px;color:#E5E7EB}
+.phone{width:390px;background:#121626;border-radius:28px;overflow:hidden;border:1px solid #2A2F4A;box-shadow:0 0 60px rgba(0,255,180,.15)}
+.top{display:flex;justify-content:space-between;align-items:center;padding:18px 20px}
+.logo{font-weight:900;font-size:18px;letter-spacing:1px}.logo span{color:#00FFB2}
+.live{font-size:11px;font-weight:800;color:#FF4D6D;background:rgba(255,77,109,.12);border:1px solid #FF4D6D;padding:4px 10px;border-radius:999px}
+.asset{padding:0 20px}.asset small{color:#8B93B0;font-size:12px;font-weight:700;letter-spacing:1px}
+.asset h1{font-size:32px;font-weight:900}.asset h1 b{color:#00FFB2;font-size:16px}
+.chart{margin:16px 20px;background:#0B0E1A;border:1px solid #2A2F4A;border-radius:16px;padding:14px}
+svg{width:100%;height:110px}
+.ticker{display:flex;gap:8px;padding:0 20px;overflow:hidden}
+.coin{flex:1;background:#1A1F36;border:1px solid #2A2F4A;border-radius:12px;padding:10px;text-align:center}
+.coin b{font-size:13px}.coin div{font-size:12px;font-weight:800;margin-top:4px}
+.list{padding:16px 20px}.row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #1F2540}
+.row .name{font-weight:800;font-size:14px}.row .name small{display:block;color:#8B93B0;font-size:11px}
+.num{font-weight:900;text-align:right;font-size:14px}
+.buy-sell{display:flex;gap:10px;padding:16px 20px 20px}
+.buy{flex:1;background:#00FFB2;color:#000;font-weight:900;text-align:center;padding:14px;border-radius:12px}
+.sell{flex:1;background:#FF4D6D;color:#fff;font-weight:900;text-align:center;padding:14px;border-radius:12px}
+.nav{display:flex;background:#0B0E1A;border-top:1px solid #2A2F4A;padding:12px}.nav div{flex:1;text-align:center;font-size:20px;color:#8B93B0}.nav .on{color:#00FFB2}.nav small{display:block;font-size:10px}
+</style>
+</head>
+<body>
+<div class="phone">
+<div class="top"><div class="logo">DARK<span>CHART</span> ⚡</div><div class="live">● LIVE 1분봉</div></div>
+<div class="asset"><small>TOTAL ASSET</small><h1>₩11,872,400 <b>+18.7%</b></h1></div>
+<div class="chart">
+<svg viewBox="0 0 300 110"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#00FFB2" stop-opacity=".4"/><stop offset="1" stop-color="#00FFB2" stop-opacity="0"/></linearGradient></defs>
+<path d="M0,90 L30,80 L60,85 L90,60 L120,65 L150,40 L180,50 L210,30 L240,35 L270,15 L300,20 L300,110 L0,110Z" fill="url(#g)"/>
+<polyline points="0,90 30,80 60,85 90,60 120,65 150,40 180,50 210,30 240,35 270,15 300,20" fill="none" stroke="#00FFB2" stroke-width="3" stroke-linejoin="round"/>
+<circle cx="270" cy="15" r="5" fill="#00FFB2"/><circle cx="270" cy="15" r="9" fill="none" stroke="#00FFB2" opacity=".5"/>
+</svg>
+<div style="display:flex;justify-content:space-between;font-size:11px;color:#8B93B0;font-weight:700"><span>치킨왕국 • 45,200</span><span style="color:#00FFB2">▲ +8.2% 오늘 급등중</span></div>
+</div>
+<div class="ticker"><div class="coin"><b>🍗 CHKN</b><div style="color:#00FFB2">+8.2%</div></div><div class="coin"><b>🎧 IDOL</b><div style="color:#00FFB2">+5.1%</div></div><div class="coin"><b>🕹️ GAME</b><div style="color:#FF4D6D">-2.3%</div></div></div>
+<div class="list">
+<div class="row"><div class="name">치킨왕국<small>보유중 • 10주</small></div><div class="num">45,200원<br><span style="color:#00FFB2">+36,000</span></div></div>
+<div class="row"><div class="name">아이돌엔터<small>보유중 • 20주</small></div><div class="num">32,150원<br><span style="color:#00FFB2">+52,000</span></div></div>
+<div class="row"><div class="name">게임월드<small>미보유</small></div><div class="num">18,900원<br><span style="color:#FF4D6D">-12,000</span></div></div>
+</div>
+<div class="buy-sell"><div class="buy">매수 BUY</div><div class="sell">매도 SELL</div></div>
+<div class="nav"><div class="on">◈<small>차트</small></div><div>◎<small>종목</small></div><div>☆<small>랭킹</small></div><div>✉<small>보드</small></div><div>●<small>MY</small></div></div>
+</div>
+</body>
+</html>

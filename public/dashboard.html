@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MY 홈 - 모의스톡 MY</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="logo">모의스톡 <span>MY</span></div>
+    <div class="nav">
+      <a class="on" href="/dashboard.html">◉ MY 홈</a>
+      <a href="/board.html">♡ 피드</a>
+      <a href="/stocks.html">▦ 종목 탐색</a>
+      <a href="/dashboard.html">🏆 챌린지</a>
+      <small>MENU</small>
+      <a href="/portfolio.html">📊 포트폴리오</a>
+      <a href="/history.html">🧾 거래내역</a>
+      <a href="#" id="logout">⚙ 로그아웃</a>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="hero">
+      <div class="label">내 자산</div>
+      <div class="total" id="kTotal">-</div>
+      <div class="delta" id="kProfit">-</div>
+      <div class="seg" style="margin-top:16px">
+        <div class="kpi" style="flex:1;border:none;padding:0"><span>주식 평가액</span><b id="kStock" style="font-size:17px">-</b></div>
+        <div class="kpi" style="flex:1;border:none;padding:0"><span>주식 살 수 있는 돈</span><b id="kCash" style="font-size:17px">-</b></div>
+        <div class="kpi" style="flex:1;border:none;padding:0"><span>수익률</span><b id="kRate" style="font-size:17px">-</b></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="seg" id="tabs">
+        <button class="on" data-t="own">구매한 주식</button>
+        <button data-t="watch">관심 주식</button>
+        <button data-t="hot">오늘의 인기 주식</button>
+      </div>
+      <div id="ownWrap" style="margin-top:6px"><div id="holds"></div></div>
+      <div id="watchWrap" style="margin-top:6px;display:none"><div id="watch"></div></div>
+      <div id="hotWrap" style="margin-top:6px;display:none"><div id="hot"></div></div>
+    </div>
+    <div class="panel"><h2>내가 쓴 글 <a href="/board.html" style="margin-left:auto;font-size:12px;color:var(--muted);text-decoration:none">게시판 →</a></h2><div id="myPosts" style="margin-top:8px"></div></div>
+  </main>
+  <div class="rail">
+    <div class="profile" style="padding:16px">
+      <div class="avatar" style="width:44px;height:44px;font-size:22px">🐰</div>
+      <div><h1 style="font-size:15px"><span id="nick">...</span></h1><p id="meta" style="font-size:12px">확인 중...</p></div>
+    </div>
+    <div class="mini"><h3>실시간 종목</h3><div id="live"></div></div>
+    <p class="note">수수료 0원 · 시장가 단일가 · 가상호가는 표시용</p>
+  </div>
+</div>
+<div class="ttoast" id="ttoast"></div>
+<script src="/app.js"></script>
+<script>
+function ttoast(m) { const t = document.getElementById('ttoast'); t.textContent = m; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2200); }
+function coinRow(s, right1, right2, badge) {
+  const ic = (s.name || s.code || '?').slice(0, 1);
+  return `<div class="coin" data-c="${s.code}"><div class="logo-c">${ic}</div><div><div class="nm">${s.name}</div><div class="sub">${s.code} · ${right2 || ''}</div></div><div class="right"><div class="amt">${right1}</div>${badge || ''}</div></div>`;
+}
+let portfolio = null;
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#tabs button').forEach(x => x.classList.remove('on'));
+  b.classList.add('on');
+  const t = b.dataset.t;
+  document.getElementById('ownWrap').style.display = t === 'own' ? '' : 'none';
+  document.getElementById('watchWrap').style.display = t === 'watch' ? '' : 'none';
+  document.getElementById('hotWrap').style.display = t === 'hot' ? '' : 'none';
+});
+function bindCoins() { document.querySelectorAll('.coin').forEach(el => el.onclick = () => location.href = '/stock.html?code=' + el.dataset.c); }
+(async () => {
+  const me = await api('/api/auth/me');
+  document.getElementById('nick').textContent = me.nickname;
+  document.getElementById('meta').textContent = me.email;
+  const p = await api('/api/portfolio');
+  portfolio = p;
+  document.getElementById('kCash').textContent = fmt(p.cash);
+  document.getElementById('kTotal').textContent = fmt(p.total);
+  document.getElementById('kStock').textContent = fmt(p.stockVal);
+  document.getElementById('kRate').textContent = (p.rate * 100).toFixed(2) + '%';
+  const kp = document.getElementById('kProfit');
+  kp.textContent = `${p.profit >= 0 ? '+' : ''}${p.profit.toLocaleString()}원 (${(p.rate * 100).toFixed(1)}%)`;
+  kp.className = 'delta ' + (p.profit >= 0 ? 'up' : 'down');
+  document.getElementById('holds').innerHTML = p.items.map(i => coinRow({ code: i.code, name: i.name }, fmt(i.cur * i.qty), `${i.qty}주 · 내가 산 평균 가격 ${fmt(i.avg)}`, `<span class="pill ${i.pnl >= 0 ? 'p-up' : 'p-down'}">${i.pnl >= 0 ? '+' : ''}${i.pnl.toLocaleString()}원 (${(i.rate * 100).toFixed(1)}%)</span>`)).join('') || '<p style="font-size:13px;color:var(--muted);padding:12px 4px">아직 구매한 주식이 없어요. 종목 탐색에서 사보세요.</p>';
+  bindCoins();
+  const live = await api('/api/stocks');
+  document.getElementById('live').innerHTML = live.slice(0, 3).map(s => `<div class="tag"><span>${s.name}</span><b>${fmt(s.cur_price)}</b></div>`).join('');
+  try {
+    const watch = JSON.parse(localStorage.getItem('watch') || '[]');
+    const wlist = live.filter(s => watch.includes(s.code));
+    document.getElementById('watch').innerHTML = wlist.map(s => coinRow(s, fmt(s.cur_price), '관심', '')).join('') || '<p style="font-size:13px;color:var(--muted);padding:12px 4px">관심 종목이 없어요. 종목 페이지에서 ☆ 관심 버튼을 눌러보세요.</p>';
+  } catch (e) { document.getElementById('watch').innerHTML = ''; }
+  bindCoins();
+  try {
+    const hs = await Promise.all(live.map(async s => {
+      try { const h = await api(`/api/stocks/${encodeURIComponent(s.code)}/history?limit=60`); const pts = h.points.map(x => x.price); if (pts.length < 2) return { s, chg: 0 }; return { s, chg: (pts[pts.length - 1] - pts[0]) / pts[0] * 100 }; }
+      catch (e) { return { s, chg: 0 }; }
+    }));
+    hs.sort((a, b) => Math.abs(b.chg) - Math.abs(a.chg));
+    document.getElementById('hot').innerHTML = hs.slice(0, 5).map(({ s, chg }) => coinRow(s, fmt(s.cur_price), '변동률 순', `<span class="pill ${chg >= 0 ? 'p-up' : 'p-down'}">${chg >= 0 ? '+' : ''}${chg.toFixed(1)}%</span>`)).join('');
+  } catch (e) { document.getElementById('hot').innerHTML = ''; }
+  bindCoins();
+  const mine = await api('/api/posts?mine=1');
+  document.getElementById('myPosts').innerHTML = mine.slice(0, 2).map(p => `<div class="post" data-id="${p.id}" style="cursor:pointer"><b>${p.title}</b> <small>· 좋아요 ${p.likes} · 댓글 ${p.comment_cnt}</small><br>${p.body.slice(0, 60)}</div>`).join('') || '<p style="font-size:13px;color:var(--muted)">아직 쓴 글이 없습니다.</p>';
+  document.querySelectorAll('#myPosts .post').forEach(el => el.onclick = () => location.href = '/post.html?id=' + el.dataset.id);
+})();
+document.getElementById('logout').onclick = async (e) => { e.preventDefault(); await api('/api/auth/logout', 'POST'); location.href = '/login.html'; };
+</script>
+</body>
+</html>

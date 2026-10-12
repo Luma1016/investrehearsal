@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>C안 구체화 - 모의스톡 소셜 풀 프로토타입</title>
+<style>
+:root{
+  --bg:#F3F3F6; --card:#fff; --ink:#131318; --muted:#8A8A93;
+  --line:#E9E9EE; --pink:#FF4D6D; --yellow:#FFD93D; --violet:#8B5CF6;
+  --green:#16A34A; --green-bg:#E8FDF0; --blue:#2563EB; --orange:#FF9F43;
+}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Pretendard','Apple SD Gothic Neo',sans-serif}
+body{background:var(--bg);display:flex;justify-content:center;gap:28px;padding:28px;flex-wrap:wrap}
+.spec{width:340px;background:#111;color:#fff;border-radius:20px;padding:22px;height:fit-content;position:sticky;top:28px}
+.spec h2{font-size:18px}.spec h2 span{color:var(--yellow)}
+.spec p{font-size:12px;color:#B9B9C5;line-height:1.6;margin:10px 0}
+.swatch{display:flex;gap:8px;margin:12px 0}.sw{flex:1;height:44px;border-radius:10px;display:flex;align-items:end;justify-content:center;font-size:10px;font-weight:800;padding-bottom:6px;color:#fff}
+.type{background:#1E1E26;border-radius:12px;padding:12px;font-size:12px;line-height:1.7;margin-top:10px}
+.phone{width:390px;height:844px;background:var(--card);border-radius:30px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.18);display:flex;flex-direction:column;position:relative}
+.top{padding:16px 16px 8px;display:flex;justify-content:space-between;align-items:center}
+.top b{font-size:19px;letter-spacing:-.3px}.top .icons{font-size:19px;display:flex;gap:12px}
+.stories{display:flex;gap:11px;padding:8px 14px;overflow-x:auto;scrollbar-width:none}
+.story{min-width:62px;text-align:center}.ring{width:58px;height:58px;border-radius:50%;padding:3px;background:conic-gradient(from 180deg,var(--pink),var(--orange),var(--violet),var(--pink))}
+.ring.seen{background:#D9D9E0}.in{width:100%;height:100%;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:27px;border:3px solid #fff}
+.story small{font-size:10px;font-weight:800;display:block;margin-top:4px;white-space:nowrap}
+.tabs{display:flex;gap:8px;padding:10px 14px 2px}.tab{font-size:12px;font-weight:800;padding:8px 13px;border-radius:999px;background:#F1F1F5;color:#555;cursor:pointer;border:none}
+.tab.on{background:var(--ink);color:#fff}
+.chal{margin:10px 14px;background:linear-gradient(100deg,#131318 60%,#3B2A6B);color:#fff;border-radius:16px;padding:13px 14px;display:flex;justify-content:space-between;align-items:center}
+.chal b{font-size:13.5px}.chal span{font-size:11.5px;color:var(--yellow);font-weight:800}
+.chal .go{background:var(--yellow);color:#111;font-weight:900;font-size:12px;padding:9px 15px;border-radius:999px;border:none;cursor:pointer}
+.screen{flex:1;overflow-y:auto;padding:6px 14px 12px;scrollbar-width:none}.screen::-webkit-scrollbar{display:none}
+.post{border:1px solid var(--line);border-radius:18px;overflow:hidden;margin-bottom:13px;background:#fff}
+.p-top{display:flex;align-items:center;gap:10px;padding:12px 12px 8px}
+.av{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;background:#F4F4F7;flex-shrink:0}
+.p-top b{font-size:13px}.p-top small{font-size:11px;color:var(--muted)}
+.badge{font-size:10px;font-weight:900;padding:4px 9px;border-radius:999px;margin-left:auto;white-space:nowrap}
+.b-green{background:var(--green-bg);color:var(--green)}.b-orange{background:#FFF4DB;color:#B45309}.b-violet{background:#EFE9FF;color:#6D28D9}
+.p-body{padding:0 12px 10px;font-size:13.5px;line-height:1.55}
+.p-body em{font-style:normal;color:var(--blue);font-weight:800}
+.stock{display:flex;justify-content:space-between;align-items:center;margin:0 12px 10px;background:#F8F8FA;border:1px solid var(--line);border-radius:13px;padding:10px 12px}
+.stock b{font-size:13px}.stock small{font-weight:800;font-size:12px}
+.follow{background:var(--ink);color:#fff;font-size:11.5px;font-weight:800;padding:8px 13px;border-radius:999px;border:none;cursor:pointer;white-space:nowrap}
+.follow.done{background:#E5E5EA;color:#555}
+.acts{display:flex;gap:14px;padding:0 12px 12px;font-size:13px;font-weight:700;color:#555}
+.acts button{border:none;background:none;font-size:13px;font-weight:800;color:#555;cursor:pointer}
+.acts button.liked{color:var(--pink)}
+.rank{display:flex;align-items:center;gap:10px;padding:11px 4px;border-bottom:1px solid var(--line)}
+.rank .n{font-weight:900;width:22px}.rank .r{margin-left:auto;font-weight:900;font-size:13px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.meme{border:1px solid var(--line);border-radius:14px;padding:12px;background:#fff}.meme b{font-size:13px}.meme .big{font-size:20px;font-weight:900;margin:4px 0}
+.myhead{background:linear-gradient(135deg,#131318,#4C1D95);color:#fff;border-radius:18px;padding:16px;margin-bottom:12px}
+.myhead h3{font-size:22px}.myhead h3 small{font-size:13px;color:var(--yellow)}
+.kpis{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px}
+.kpi{background:rgba(255,255,255,.12);border-radius:12px;padding:10px;text-align:center}.kpi b{font-size:14px;display:block}.kpi span{font-size:10px;color:#CFCFE0}
+.bnav{display:flex;border-top:1px solid var(--line);padding:10px 6px 14px;background:#fff}
+.bnav button{flex:1;border:none;background:none;font-size:21px;cursor:pointer;color:#9A9AA5}.bnav button.on{color:var(--ink)}
+.bnav small{display:block;font-size:10px;font-weight:800}
+.fab{position:absolute;right:16px;bottom:78px;width:54px;height:54px;border-radius:50%;background:var(--ink);color:var(--yellow);font-size:26px;border:none;box-shadow:0 10px 24px rgba(0,0,0,.3);cursor:pointer}
+.modal{position:absolute;inset:0;background:rgba(0,0,0,.5);display:none;align-items:end;justify-content:center}
+.modal.open{display:flex}.sheet{width:100%;background:#fff;border-radius:22px 22px 0 0;padding:20px;animation:up .25s ease}
+@keyframes up{from{transform:translateY(30px);opacity:0}to{transform:none;opacity:1}}
+.qty{display:flex;align-items:center;gap:14px;margin:14px 0}.qty button{width:38px;height:38px;border-radius:50%;border:1.5px solid var(--line);font-size:20px;font-weight:900;background:#fff;cursor:pointer}
+.cta{width:100%;background:var(--ink);color:#fff;font-weight:900;font-size:15px;padding:14px;border-radius:14px;border:none;cursor:pointer}
+.hidden{display:none!important}
+.toast{position:absolute;left:50%;bottom:90px;transform:translateX(-50%);background:#111;color:#fff;font-size:12px;font-weight:800;padding:10px 16px;border-radius:999px;display:none;white-space:nowrap}
+</style>
+</head>
+<body>
+
+<div class="spec">
+<h2>ⓒ C안 <span>소셜 숏폼 피드형</span></h2>
+<p><b>한줄 정의:</b> 주식이 아니라 사람을 팔로우하는 앱. 틱톡 피드 + 토스 매매 + 챌린지 랭킹을 한 화면에.</p>
+<div class="swatch">
+<div class="sw" style="background:#131318">INK</div>
+<div class="sw" style="background:#FF4D6D">PINK</div>
+<div class="sw" style="background:#FFD93D;color:#111">YELLOW</div>
+<div class="sw" style="background:#8B5CF6">VIOLET</div>
+<div class="sw" style="background:#16A34A">GREEN</div>
+</div>
+<div class="type">
+<b>🎨 디자인 토큰</b><br>
+· 배경 #F3F3F6 / 카드 #FFF / 본문 #131318<br>
+· 타이틀 19px-900 / 본문 13.5px / 캡션 11px<br>
+· 카드 radius 18 / 버튼 radius 999 / 그림자 최소<br>
+· 뱃지: 보유중(그린) · 첫투자(옐로) · 고수(바이올렛)
+</div>
+<div class="type">
+<b>🧭 정보구조 (MVP 매핑)</b><br>
+· 피드 = board.html + posts API<br>
+· 탐색 = stocks.html + stocks API<br>
+· 따라사기 = trade API(POST /buy)<br>
+· 챌린지 = asset_history + portfolio API<br>
+· MY = portfolio.html + mypage.html
+</div>
+<p>→ 오른쪽 폰이 실제 클릭 프로토타입. 하단탭·좋아요·따라사기 다 눌러보세요.</p>
+</div>
+
+<div class="phone">
+<div class="top"><b>📱 모의스톡</b><div class="icons">🔍 🔔</div></div>
+<div class="stories">
+<div class="story"><div class="ring"><div class="in">🐯</div></div><small>수익왕호랑</small></div>
+<div class="story"><div class="ring"><div class="in">🐰</div></div><small>주린이토끼</small></div>
+<div class="story"><div class="ring"><div class="in">🦊</div></div><small>차트여우</small></div>
+<div class="story"><div class="ring"><div class="in">🐼</div></div><small>존버판다</small></div>
+<div class="story"><div class="ring seen"><div class="in">➕</div></div><small>내 스토리</small></div>
+</div>
+<div class="tabs">
+<button class="tab on" data-f="all">🔥 전체</button>
+<button class="tab" data-f="hot">급등중</button>
+<button class="tab" data-f="first">첫투자</button>
+<button class="tab" data-f="master">고수픽</button>
+</div>
+<div class="chal"><div><b>🔥 용돈 100만원 챌린지</b><br><span>#7일수익률배틀 · 2,341명 · D-2</span></div><button class="go" onclick="toast('챌린지 참가 완료! +500P')">참여</button></div>
+
+<!-- FEED -->
+<div class="screen" id="s-feed">
+<div class="post" data-cat="hot">
+<div class="p-top"><div class="av">🐯</div><div><b>수익왕호랑이</b><br><small>2분 전 · 수익률 +42.1%</small></div><div class="badge b-green">보유중</div></div>
+<div class="p-body">치킨왕국 오늘 상한가 각이다🔥🔥 장 시작 5분컷 예상. 나만 믿고 따라와!! <em>#치킨왕국 #불장 #급등주</em></div>
+<div class="stock"><div><b>🍗 치킨왕국 45,200원</b><br><small style="color:var(--green)">▲ +8.2% · 1분봉 급등</small></div><button class="follow" onclick="openBuy('치킨왕국',45200)">+ 따라사기</button></div>
+<div class="acts"><button onclick="like(this)">🤍 1,204</button><span>💬 88</span><span>🔁 32</span></div>
+</div>
+<div class="post" data-cat="first">
+<div class="p-top"><div class="av">🐰</div><div><b>주린이토끼</b><br><small>15분 전 · 생애 첫 매수!</small></div><div class="badge b-orange">첫투자</div></div>
+<div class="p-body">드디어 샀다!! 🥤버블티랩 2주 ㅋㅋㅋ 손 떨려... 선배님들 응원 plz 🥺 <em>#주린이 #첫주식</em></div>
+<div class="stock"><div><b>🥤 버블티랩 12,300원</b><br><small style="color:var(--green)">▲ +1.4% · 저변동 안전</small></div><button class="follow" onclick="openBuy('버블티랩',12300)">+ 따라사기</button></div>
+<div class="acts"><button onclick="like(this)">🤍 356</button><span>💬 41</span><span>🔁 5</span></div>
+</div>
+<div class="post" data-cat="master">
+<div class="p-top"><div class="av">🦊</div><div><b>차트여우</b><br><small>1시간 전 · 3연속 적중</small></div><div class="badge b-violet">고수 · 적중률 78%</div></div>
+<div class="p-body">아이돌엔터 콘서트 발표 전 저점 매수 타이밍임. 분할로 5→5→10 가자. <em>#차트분석 #분할매수</em></div>
+<div class="stock"><div><b>🎧 아이돌엔터 32,150원</b><br><small style="color:var(--green)">▲ +5.1%</small></div><button class="follow" onclick="openBuy('아이돌엔터',32150)">+ 따라사기</button></div>
+<div class="acts"><button onclick="like(this)">🤍 892</button><span>💬 64</span><span>🔁 47</span></div>
+</div>
+</div>
+
+<!-- EXPLORE -->
+<div class="screen hidden" id="s-explore">
+<div class="grid2">
+<div class="meme"><div>🔥</div><b>급등 밈주식</b><div class="big" style="color:var(--green)">+8.2%</div><small>🍗 치킨왕국</small></div>
+<div class="meme"><div>💜</div><b>Z세대 PICK</b><div class="big">2,341명</div><small>🎧 아이돌엔터 보유중</small></div>
+<div class="meme"><div>🌱</div><b>첫투자 안전주</b><div class="big">12,300원</div><small>🥤 버블티랩 저변동</small></div>
+<div class="meme"><div>🎮</div><b>저점 매수찬스?</b><div class="big" style="color:var(--pink)">-2.3%</div><small>🕹️ 게임월드</small></div>
+</div>
+<div style="margin:14px 4px;font-weight:900">📈 실시간 급상승 종목</div>
+<div class="rank"><div class="n">1</div><div class="av">🍗</div><div><b style="font-size:13px">치킨왕국</b><br><small style="color:var(--muted)">45,200원</small></div><div class="r" style="color:var(--green)">+8.2%</div></div>
+<div class="rank"><div class="n">2</div><div class="av">🎧</div><div><b style="font-size:13px">아이돌엔터</b><br><small style="color:var(--muted)">32,150원</small></div><div class="r" style="color:var(--green)">+5.1%</div></div>
+<div class="rank"><div class="n">3</div><div class="av">🥤</div><div><b style="font-size:13px">버블티랩</b><br><small style="color:var(--muted)">12,300원</small></div><div class="r" style="color:var(--green)">+1.4%</div></div>
+<div class="rank"><div class="n">4</div><div class="av">🕹️</div><div><b style="font-size:13px">게임월드</b><br><small style="color:var(--muted)">18,900원</small></div><div class="r" style="color:var(--pink)">-2.3%</div></div>
+</div>
+
+<!-- CHALLENGE -->
+<div class="screen hidden" id="s-chal">
+<div class="myhead"><small style="font-weight:800;color:var(--yellow)">🏆 내 순위 · 10대 리그 128위 / 2,341명</small><h3>+18.7% <small>상위 6% 🔥</small></h3>
+<div class="kpis"><div class="kpi"><b>₩11.87M</b><span>총자산</span></div><div class="kpi"><b>3연승</b><span>적중 스트릭</span></div><div class="kpi"><b>D-2</b><span>챌린지 종료</span></div></div></div>
+<div class="rank"><div class="n">🥇</div><div class="av">🐯</div><div><b style="font-size:13px">수익왕호랑이</b><br><small style="color:var(--muted)">+42.1%</small></div><div class="r">👑</div></div>
+<div class="rank"><div class="n">🥈</div><div class="av">🦊</div><div><b style="font-size:13px">차트여우</b><br><small style="color:var(--muted)">+35.4%</small></div><div class="r">🔥</div></div>
+<div class="rank"><div class="n">🥉</div><div class="av">🐼</div><div><b style="font-size:13px">존버판다</b><br><small style="color:var(--muted)">+29.8%</small></div><div class="r"></div></div>
+<div class="rank" style="background:#FFF7D1;border-radius:12px;padding:11px 8px"><div class="n">128</div><div class="av">🐰</div><div><b style="font-size:13px">나 (주린이토끼)</b><br><small style="color:var(--muted)">+18.7%</small></div><div class="r" style="color:var(--pink)">▲ 12</div></div>
+</div>
+
+<!-- MY -->
+<div class="screen hidden" id="s-my">
+<div class="myhead"><small style="font-weight:800">🐰 주린이토끼 · Lv.4</small><h3>₩11,872,400</h3>
+<div class="kpis"><div class="kpi"><b>+18.7%</b><span>수익률</span></div><div class="kpi"><b>3종목</b><span>보유</span></div><div class="kpi"><b>128위</b><span>랭킹</span></div></div></div>
+<div class="rank"><div class="av">🍗</div><div><b style="font-size:13px">치킨왕국 · 10주</b><br><small style="color:var(--muted)">평단 41,600 → 45,200</small></div><div class="r" style="color:var(--green)">+36,000</div></div>
+<div class="rank"><div class="av">🎧</div><div><b style="font-size:13px">아이돌엔터 · 20주</b><br><small style="color:var(--muted)">평단 29,550 → 32,150</small></div><div class="r" style="color:var(--green)">+52,000</div></div>
+<div class="rank"><div class="av">💰</div><div><b style="font-size:13px">예수금</b><br><small style="color:var(--muted)">주문가능 현금</small></div><div class="r">10,785,000</div></div>
+</div>
+
+<button class="fab" onclick="toast('글쓰기: 종목태그 + 사진 선택')">＋</button>
+<div class="bnav">
+<button class="on" data-s="s-feed">🏠<small>피드</small></button>
+<button data-s="s-explore">🔍<small>탐색</small></button>
+<button data-s="s-chal">🏆<small>챌린지</small></button>
+<button data-s="s-my">🙂<small>MY</small></button>
+</div>
+
+<div class="modal" id="buyModal"><div class="sheet">
+<b id="buyTitle" style="font-size:16px">🍗 치킨왕국 따라사기</b>
+<p id="buyPrice" style="font-size:12px;color:#888;margin-top:4px">1주 45,200원 · 수수료 0원</p>
+<div class="qty"><button onclick="chQty(-1)">−</button><b id="qty" style="font-size:22px">1주</b><button onclick="chQty(1)">＋</button><span id="total" style="margin-left:auto;font-weight:900">45,200원</span></div>
+<button class="cta" onclick="confirmBuy()">이대로 따라사기</button>
+<button onclick="closeBuy()" style="width:100%;border:none;background:none;margin-top:10px;color:#888;font-weight:800;cursor:pointer">닫기</button>
+</div></div>
+<div class="toast" id="toast"></div>
+</div>
+
+<script>
+let curPrice=45200, curName='', qty=1;
+document.querySelectorAll('.bnav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.bnav button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  document.querySelectorAll('.screen').forEach(s=>s.classList.add('hidden'));
+  document.getElementById(b.dataset.s).classList.remove('hidden');
+});
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on')); t.classList.add('on');
+  const f=t.dataset.f;
+  document.querySelectorAll('#s-feed .post').forEach(p=>{ p.style.display=(f==='all'||p.dataset.cat===f)?'':'none'; });
+});
+function like(el){ const liked=el.classList.toggle('liked'); const n=parseInt(el.textContent.replace(/[^0-9]/g,''))||0;
+  el.textContent=(liked?'❤️ ':'🤍 ')+(liked?n+1:n).toLocaleString(); }
+function openBuy(name,price){ curName=name;curPrice=price;qty=1;upd();
+  document.getElementById('buyTitle').textContent='따라사기 · '+name;
+  document.getElementById('buyPrice').textContent='1주 '+price.toLocaleString()+'원 · 수수료 0원 · 시장가';
+  document.getElementById('buyModal').classList.add('open'); }
+function closeBuy(){ document.getElementById('buyModal').classList.remove('open'); }
+function chQty(d){ qty=Math.min(99,Math.max(1,qty+d)); upd(); }
+function upd(){ document.getElementById('qty').textContent=qty+'주';
+  document.getElementById('total').textContent=(qty*curPrice).toLocaleString()+'원'; }
+function confirmBuy(){ closeBuy(); toast(curName+' '+qty+'주 매수 완료! 🎉'); }
+function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.style.display='block';
+  clearTimeout(t._h); t._h=setTimeout(()=>t.style.display='none',1800); }
+</script>
+</body>
+</html>

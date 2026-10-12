@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>피드 - 모의스톡 MY</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="logo">모의스톡 <span>MY</span></div>
+    <div class="nav">
+      <a href="/dashboard.html">◉ MY 홈</a>
+      <a class="on" href="/board.html">♡ 피드</a>
+      <a href="/stocks.html">▦ 종목 탐색</a>
+      <a href="/dashboard.html">🏆 챌린지</a>
+      <small>MENU</small>
+      <a href="/portfolio.html">📊 포트폴리오</a>
+      <a href="/history.html">🧾 거래내역</a>
+      <a href="#" id="logout">⚙ 로그아웃</a>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="panel"><h2>공지·공시</h2><div id="notices" style="margin-top:8px"></div></div>
+    <div class="panel">
+      <h2>인기가 많은 글 <span style="font-size:11.5px;color:var(--muted);font-weight:700">좋아요 순</span></h2>
+      <div id="hot"></div>
+    </div>
+    <div class="panel">
+      <div style="display:flex;align-items:center"><h2>랜덤 글 <span style="font-size:11.5px;color:var(--muted);font-weight:700">새로고침마다 바뀜</span></h2><button class="follow-btn" id="shuffle" style="margin-left:auto">다른 글 보기</button></div>
+      <div id="random"></div>
+      <p style="font-size:11.5px;color:var(--muted);margin-top:8px">글쓰기는 각 종목 상세 페이지에서 할 수 있어요</p>
+    </div>
+  </main>
+  <div class="rail"><div class="mini"><h3>안내</h3><p style="font-size:12.5px;color:var(--muted)">보유 종목 작성자에게 <b>보유중</b> 뱃지 표시 · 블라인드 글 제외</p></div></div>
+</div>
+<script src="/app.js"></script>
+<script>
+function card(p) {
+  return `<div class="post" data-id="${p.id}" style="cursor:pointer"><b>${p.title}</b> ${p.isHolder ? '<span class="pill p-up">보유중</span>' : ''}<br><small>${p.nickname} · ${p.stock_code || '전체'} · 좋아요 ${p.likes} · 댓글 ${p.comment_cnt} · 조회 ${p.views}</small><br>${p.body.slice(0, 80)}</div>`;
+}
+function bind(scope) { scope.querySelectorAll('.post').forEach(el => el.onclick = () => location.href = '/post.html?id=' + el.dataset.id); }
+let all = [];
+async function load() {
+  const ns = await api('/api/notices');
+  document.getElementById('notices').innerHTML = ns.slice(0, 5).map(n => `<div class="tag"><span><b>${n.title}</b><br><small style="color:var(--muted)">${n.body.slice(0, 60)}</small></span></div>`).join('') || '<p style="font-size:13px;color:var(--muted)">공지 없음</p>';
+  const hot = await api('/api/posts?sort=' + encodeURIComponent('좋아요'));
+  document.getElementById('hot').innerHTML = hot.slice(0, 8).map(card).join('') || '<p style="font-size:13px;color:var(--muted)">글이 없습니다.</p>';
+  bind(document.getElementById('hot'));
+  all = await api('/api/posts?sort=' + encodeURIComponent('최신'));
+  shuffle();
+}
+function shuffle() {
+  const arr = [...all];
+  for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[arr[i], arr[j]] = [arr[j], arr[i]]; }
+  document.getElementById('random').innerHTML = arr.slice(0, 8).map(card).join('') || '<p style="font-size:13px;color:var(--muted)">글이 없습니다. 종목 페이지에서 첫 글을 남겨보세요.</p>';
+  bind(document.getElementById('random'));
+}
+document.getElementById('shuffle').onclick = shuffle;
+document.getElementById('logout').onclick = async (e) => { e.preventDefault(); await api('/api/auth/logout', 'POST'); location.href = '/login.html'; };
+load();
+</script>
+</body>
+</html>

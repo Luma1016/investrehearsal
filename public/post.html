@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>게시글 - 모의스톡 MY</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="logo">모의스톡 <span>MY</span></div>
+    <div class="nav">
+      <a href="/dashboard.html">◉ MY 홈</a>
+      <a class="on" href="/board.html">♡ 피드</a>
+      <a href="/stocks.html">▦ 종목 탐색</a>
+      <a href="/dashboard.html">🏆 챌린지</a>
+      <small>MENU</small>
+      <a href="/portfolio.html">📊 포트폴리오</a>
+      <a href="/history.html">🧾 거래내역</a>
+      <a href="#" id="logout">⚙ 로그아웃</a>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="panel"><h2 id="title">...</h2><p style="font-size:12px;color:var(--muted);margin-top:6px" id="meta"></p><div id="badge" style="margin-top:8px"></div><p style="font-size:13.5px;margin-top:12px;white-space:pre-wrap" id="body"></p><div class="tradebox"><button class="follow-btn" id="like">♡ 좋아요</button><button class="follow-btn" id="edit" style="display:none">수정</button><button class="follow-btn" id="del" style="display:none">삭제</button></div></div>
+    <div class="panel"><h2>댓글</h2><div id="clist" style="margin-top:8px"></div><div class="search"><input id="cBody" placeholder="댓글 쓰기"><button class="follow-btn" id="cBtn">등록</button></div></div>
+  </main>
+  <div class="rail"><div class="mini"><h3>안내</h3><p style="font-size:12.5px;color:var(--muted)">본인 글·댓글만 수정/삭제 가능</p></div></div>
+</div>
+<script src="/app.js"></script>
+<script>
+const id = new URLSearchParams(location.search).get('id');
+if (!id) location.href = '/board.html';
+async function load() {
+  const p = await api('/api/posts/' + id);
+  document.getElementById('title').textContent = p.title;
+  document.getElementById('meta').textContent = `${p.nickname} · ${p.stock_code || '전체'} · ${p.created_at} · 조회 ${p.views} · 좋아요 ${p.likes}`;
+  document.getElementById('badge').innerHTML = p.isHolder ? '<span class="pill p-green">보유중</span>' : '';
+  document.getElementById('body').textContent = p.body;
+  document.getElementById('like').textContent = `♡ 좋아요 ${p.likes}`;
+  if (p.mine) { document.getElementById('edit').style.display = ''; document.getElementById('del').style.display = ''; }
+  const cs = await api(`/api/posts/${id}/comments`);
+  document.getElementById('clist').innerHTML = cs.map(c => `<div class="post"><b>${c.nickname}</b> <small>${c.created_at}</small><br>${c.body} ${c.mine ? `<button class="follow-btn" data-del="${c.id}">삭제</button>` : ''}</div>`).join('') || '<p style="font-size:13px;color:var(--muted)">첫 댓글을 남겨보세요.</p>';
+  document.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { await api('/api/comments/' + b.dataset.del, 'DELETE'); load(); });
+}
+document.getElementById('like').onclick = async () => { try { await api(`/api/posts/${id}/like`, 'POST'); load(); } catch (e) { toast('좋아요 실패: ' + e.message); } };
+document.getElementById('cBtn').onclick = async () => { const v = document.getElementById('cBody').value; if (!v.trim()) return; await api(`/api/posts/${id}/comments`, 'POST', { body: v }); document.getElementById('cBody').value = ''; load(); };
+document.getElementById('del').onclick = async () => { if (!confirm('삭제할까요?')) return; await api('/api/posts/' + id, 'DELETE'); location.href = '/board.html'; };
+document.getElementById('edit').onclick = async () => { const t = prompt('새 제목', document.getElementById('title').textContent); if (!t) return; try { await api('/api/posts/' + id, 'PUT', { title: t }); load(); } catch (e) { toast('수정 실패: ' + e.message); } };
+document.getElementById('logout').onclick = async (e) => { e.preventDefault(); await api('/api/auth/logout', 'POST'); location.href = '/login.html'; };
+load();
+</script>
+</body>
+</html>
