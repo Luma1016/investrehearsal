@@ -5,15 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>종목 상세 - 모의스톡 MY</title>
 <link rel="stylesheet" href="/style.css">
-<style>
-#price { transition: color .3s; }
-#price.tick { animation: pricepop .45s; display: inline-block; }
-@keyframes pricepop { 0% { transform: scale(1); } 30% { transform: scale(1.06); } 100% { transform: scale(1); } }
-#chartWrap { position: relative; }
-#chartTip { position: absolute; display: none; background: #191F28; color: #fff; border-radius: 12px; padding: 10px 12px; font-size: 11.5px; line-height: 1.6; pointer-events: none; z-index: 5; white-space: nowrap; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
-#chartTip b { font-size: 12px; }
-.tagpill { display: inline-block; font-size: 11px; font-weight: 800; background: #EEF2FF; color: #4F46E5; border-radius: 999px; padding: 3px 10px; margin-left: 6px; vertical-align: middle; }
-</style>
 </head>
 <body>
 <div class="shell">
@@ -23,7 +14,7 @@
       <a href="/dashboard.html">◉ MY 홈</a>
       <a href="/board.html">♡ 피드</a>
       <a class="on" href="/stocks.html">▦ 종목 탐색</a>
-      <a href="/dashboard.html">🏆 챌린지</a>
+      <a href="/challenge.html">🏆 챌린지</a>
       <small>MENU</small>
       <a href="/portfolio.html">📊 포트폴리오</a>
       <a href="/history.html">🧾 거래내역</a>
@@ -38,26 +29,21 @@
       </div>
       <p class="big-num" id="price" style="margin-top:10px">-</p>
       <p id="chgLine" style="font-size:14px;font-weight:800;margin-top:4px">-</p>
+      <p id="cbLine" style="font-size:12.5px;font-weight:800;margin-top:4px"></p>
       <div class="ticker" id="ticker"></div>
       <p style="font-size:11.5px;color:var(--muted);margin-top:8px">전일종가·52주선은 기록 범위 내 추정치, 시가총액은 가상 발행 100만주 가정</p>
       <p style="font-size:12.5px;color:var(--muted);margin-top:4px" id="hold">보유 확인 중...</p>
       <p style="font-size:12.5px;color:var(--muted)" id="cashLine">주식 살 수 있는 돈 확인 중...</p>
     </div>
     <div class="panel">
-      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px"><h2>캔들차트 + 거래량</h2><div class="period" id="bucket" style="margin:0 0 0 auto"><button data-b="60">1분</button><button class="on" data-b="300">5분</button><button data-b="86400">1일</button><button data-b="604800">1주</button><button data-b="2592000">1달</button></div></div>
-      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center"><h2>캔들차트 + 거래량</h2><div class="period" id="bucket" style="margin:0 0 0 auto"><button data-b="60">1분</button><button class="on" data-b="300">5분</button><button data-b="86400">1일</button></div></div>
+      <div style="display:flex;gap:6px;margin-top:8px">
         <button class="follow-btn" id="prevBtn">◀ 이전</button>
         <button class="follow-btn" id="nextBtn">다음 ▶</button>
-        <button class="follow-btn" id="liveBtn">● 라이브</button>
-        <button class="follow-btn" id="moreBtn">과거 더 보기</button>
-        <span id="liveBadge" style="font-size:11.5px;color:var(--muted);font-weight:700;align-self:center"></span>
+        <button class="follow-btn" id="liveBtn">최신으로</button>
       </div>
-      <div id="chartWrap" style="position:relative"><canvas id="candle" width="700" height="260" style="cursor:grab;touch-action:none"></canvas><div id="chartTip"></div></div>
+      <canvas id="candle" width="700" height="260" style="cursor:grab;touch-action:none"></canvas>
       <p style="font-size:12px;color:var(--muted)" id="range"></p>
-    </div>
-    <div class="panel">
-      <h2>종목 뉴스 <span style="font-size:11.5px;color:var(--muted);font-weight:700">자동 속보 · 공시</span></h2>
-      <div id="news" style="margin-top:8px"></div>
     </div>
     <div class="panel">
       <h2>호가창 <span style="font-size:11.5px;color:var(--muted);font-weight:700">가상호가(표시용) · 클릭하면 주문에 반영 · 실제 체결은 시장가</span></h2>
@@ -68,11 +54,24 @@
       <h2>체결 내역 <span style="font-size:11.5px;color:var(--muted);font-weight:700">익명 · 실시간 갱신</span></h2>
       <div class="tape" id="tape"></div>
     </div>
-    <div class="panel"><h2>종목 게시글</h2><div id="posts" style="margin-top:8px"></div>
-      <div class="search"><input id="wTitle" placeholder="제목 (100자 이내)"></div>
-      <div class="search"><input id="wBody" placeholder="이 종목에 대한 생각을 바로 남겨보세요"></div>
-      <button class="btn" id="writeBtn">이 종목에 글쓰기</button>
-      <p style="font-size:11.5px;color:var(--muted);margin-top:8px">30초에 한 번만 쓸 수 있어요 · 피드에서도 볼 수 있어요</p>
+    <div class="panel">
+      <h2>예약 매수 <span style="font-size:11.5px;color:var(--muted);font-weight:700">목표가 이하가 되면 다음 시세에 자동 체결</span></h2>
+      <div class="search"><input id="rvPrice" type="number" placeholder="목표가 (원)" style="max-width:140px"><input id="rvQty" type="number" value="1" min="1" style="max-width:90px"><button class="follow-btn" id="rvBtn">예약</button></div>
+      <div id="rvList" style="margin-top:8px"></div>
+      <p style="font-size:11.5px;color:var(--muted);margin-top:8px">주문 시 목표가×수량만큼 예수금 필요 · 체결가·내역은 거래내역에 기록</p>
+    </div>
+    <div class="panel"><h2>소통 · 소식</h2>
+      <div class="seg" id="infoTabs" style="margin-top:10px">
+        <button class="on" data-t="posts">종목 게시글</button>
+        <button data-t="news">종목 뉴스</button>
+      </div>
+      <div id="postsWrap" style="margin-top:8px"><div id="posts"></div>
+        <div class="search"><input id="wTitle" placeholder="제목 (100자 이내)"></div>
+        <div class="search"><input id="wBody" placeholder="이 종목에 대한 생각을 바로 남겨보세요"></div>
+        <button class="btn" id="writeBtn">이 종목에 글쓰기</button>
+        <p style="font-size:11.5px;color:var(--muted);margin-top:8px">30초에 한 번만 쓸 수 있어요 · 피드에서도 볼 수 있어요</p>
+      </div>
+      <div id="newsWrap" style="margin-top:8px;display:none"><div id="news"></div></div>
     </div>
     <div class="bottom-bar"><button class="sell" id="sellFab">판매하기 · 팔기</button><button class="buy" id="buyFab">구매하기 · 사기</button></div>
   </main>
@@ -97,19 +96,29 @@ const code = new URLSearchParams(location.search).get('code');
 if (!code) location.href = '/stocks.html';
 let cur = null, myCash = 0, myQty = 0, myAvg = null, allPts = [], trades = [], candles = [];
 let bucketSec = 300, sheetSide = 'buy', sheetMode = 'qty';
-let hoverIdx = null; // 십자선/툴팁용: viewSlice() 기준 인덱스
-// 보기 창: 시간 간격 무시하고 봉을 인덱스 기준 연속 표시. end=0이면 최신(라이브) 추적.
-let viewCount = 60, viewEnd = 0, hasMore = false, oldestAt = null, loadingMore = false;
+// 차트 보기 창: 최대 50봉 표시, viewEnd>0이면 과거로 스크롤 (드래그·버튼)
+let viewN = 50, viewEnd = 0;
+function viewSlice() {
+  const end = candles.length - viewEnd;
+  return candles.slice(Math.max(0, end - viewN), end);
+}
 // 실시간 캔들 기준가: 마지막 서버 확정가(anchor) + 화면 표시용 라이브가(live)
 let anchorPrice = null, livePrice = null;
 const MICRO_RANGE = 0.0015, MEAN_REVERT = 0.3, MICRO_CAP = 0.005;
 const UP = '#F04452', DOWN = '#3182F6';
 const VIRTUAL_SHARES = 1000000;
 function ttoast(m) { const t = document.getElementById('ttoast'); t.textContent = m; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2200); }
+function tradeErr(e) {
+  const m = String((e && e.message) || e);
+  if (m.includes('CIRCUIT_HALT')) return '서킷브레이커 발동 — 오늘은 이 종목 거래할 수 없어요';
+  if (m.includes('CIRCUIT_PAUSE')) return '서킷브레이커 일시정지 중 — 잠시 후 거래 재개돼요';
+  if (m.includes('CASH_LACK')) return '예수금이 부족해요';
+  if (m.includes('HOLDING_LACK')) return '보유 수량이 부족해요';
+  return m;
+}
 function ts(s) { const d = new Date(String(s).replace(' ', 'T')); return isNaN(d) ? Date.now() : d.getTime(); }
 function fmtT(t, daily) { const d = new Date(t); const p = (n) => String(n).padStart(2, '0'); return daily ? `${d.getMonth() + 1}/${d.getDate()}` : `${p(d.getHours())}:${p(d.getMinutes())}`; }
 function buildCandles() {
-  // 시간에 구애받지 않고 봉을 서로 바로 옆에: 버킷 경계 기준 + 빈 버킷은 전 종가로 메움(flat) + 1포인트 버킷은 전 종가를 시가로
   const map = new Map();
   for (const p of allPts) {
     const t = ts(p.at); if (isNaN(t)) continue;
@@ -117,44 +126,26 @@ function buildCandles() {
     if (!map.has(b)) map.set(b, []);
     map.get(b).push({ price: p.price, t });
   }
-  const keys = [...map.keys()].sort((a, b) => a - b);
-  const out = [];
-  let prevClose = null;
-  if (keys.length) {
-    for (let b = keys[0]; b <= keys[keys.length - 1]; b += bucketSec) {
-      const arr = map.get(b);
-      if (!arr) {
-        if (prevClose != null) out.push({ t: b * 1000, o: prevClose, h: prevClose, l: prevClose, c: prevClose, v: 0, flat: true });
-        continue;
-      }
-      arr.sort((x, y) => x.t - y.t);
-      const ps = arr.map(x => x.price);
-      let o, c, h, l;
-      if (ps.length === 1) {
-        o = prevClose != null ? prevClose : ps[0];
-        c = ps[0]; h = Math.max(o, c); l = Math.min(o, c);
-      } else {
-        o = ps[0]; c = ps[ps.length - 1]; h = Math.max(...ps); l = Math.min(...ps);
-      }
-      let bv = 0, sv = 0;
-      for (const tr of trades) {
-        const t = ts(tr.created_at);
-        if (Math.floor(t / 1000 / bucketSec) * bucketSec !== b) continue;
-        if (tr.side === 'BUY') bv += tr.qty; else sv += tr.qty;
-      }
-      out.push({ t: b * 1000, o, h, l, c, v: bv + sv });
-      prevClose = c;
+  candles = [...map.keys()].sort((a, b) => a - b).map(k => {
+    const arr = map.get(k).sort((a, b) => a.t - b.t);
+    const ps = arr.map(x => x.price);
+    let bv = 0, sv = 0;
+    for (const tr of trades) {
+      const t = ts(tr.created_at);
+      if (Math.floor(t / 1000 / bucketSec) * bucketSec !== k) continue;
+      if (tr.side === 'BUY') bv += tr.qty; else sv += tr.qty;
     }
-  }
-  candles = out;
-  // 보기 창 클램프
-  if (viewEnd < 0) viewEnd = 0;
+    const o = ps[0], c = ps[ps.length - 1];
+    // 가상 거래량: 실체결이 없어도 막대가 보이도록. 버킷별 고정 난수(새로고침에 흔들리지 않음)
+    // + 변동이 클수록 + 대장주는 10배 이상
+    const isBlue = cur && cur.stock_type === 'bluechip';
+    const baseVol = isBlue ? 1500 : 120;
+    const r = Math.abs(Math.sin(k * 12.9898) * 43758.5453) % 1;
+    const rangePct = o ? Math.abs(c - o) / o : 0;
+    const virt = Math.round(baseVol * (0.5 + r) * (1 + Math.min(3, rangePct * 80)));
+    return { t: k * 1000, o, h: Math.max(...ps), l: Math.min(...ps), c, v: bv + sv + virt };
+  });
   if (viewEnd > Math.max(0, candles.length - 1)) viewEnd = Math.max(0, candles.length - 1);
-}
-function viewSlice() {
-  const end = candles.length - viewEnd;
-  const start = Math.max(0, end - viewCount);
-  return candles.slice(start, end);
 }
 function draw() {
   const cv = document.getElementById('candle'), ctx = cv.getContext('2d');
@@ -172,23 +163,21 @@ function draw() {
   const Y = (p) => PT + (1 - (p - lo) / rg) * PH;
   ctx.strokeStyle = '#EEF0F3'; ctx.lineWidth = 1;
   for (let g = 0; g < 4; g++) { const y = PT + PH * g / 3; ctx.beginPath(); ctx.moveTo(52, y); ctx.lineTo(700, y); ctx.stroke(); }
-  // 공백 제거: 봉 사이 간격 최소화 (슬롯의 92% 사용)
-  const n = view.length, slot = (700 - 52) / n, bw = Math.max(2, Math.min(26, slot * 0.92));
+  // 봉 굵게 + 간격 좁게: 슬롯의 85% 사용
+  const n = view.length, slot = (700 - 52) / n, bw = Math.max(4, Math.min(22, slot * 0.85));
   view.forEach((c, i) => {
     const x = 52 + slot * i + slot / 2, col = c.c >= c.o ? UP : DOWN;
-    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = Math.max(1.5, Math.min(3, bw * 0.18));
+    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1.5;
     // 꼬리: 고가-저가 수직선 (봉에 점이 1개뿐이어도 최소 표시)
     const yH = Y(c.h), yL = Y(c.l);
     ctx.beginPath(); ctx.moveTo(x, yH); ctx.lineTo(x, Math.max(yL, yH + 1)); ctx.stroke();
-    // 몸통: 시가-종가 꽉 채우기, 도지(시가≈종가)는 십자 틱으로
-    const yO = Y(c.o), yC = Y(c.c), top = Math.min(yO, yC), bh = Math.abs(yC - yO);
-    if (bh < 2) {
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(x - bw / 2 - 1, top); ctx.lineTo(x + bw / 2 + 1, top); ctx.stroke();
-      ctx.lineWidth = 1.5;
-    } else {
-      ctx.fillRect(x - bw / 2, top, bw, bh);
-    }
+    // 몸통: 시가-종가 꽉 채우기 + 최소 몸통 높이 보장 (미동·도지도 봉으로 보이게)
+    // 가격이 거의 안 움직여도 최소 3px 두께의 얇은 사각형으로 렌더링 (HTS 십자바 느낌)
+    const yO = Y(c.o), yC = Y(c.c);
+    let top = Math.min(yO, yC), bh = Math.abs(yC - yO);
+    const MIN_BH = 3;
+    if (bh < MIN_BH) { const mid = (yO + yC) / 2; top = mid - MIN_BH / 2; bh = MIN_BH; }
+    ctx.fillRect(x - bw / 2, top, bw, bh);
     if (vmax > 0) { const vh = Math.max(1, c.v / vmax * VH); ctx.globalAlpha = 0.75; ctx.fillRect(x - bw / 2, VT + VH - vh, bw, vh); ctx.globalAlpha = 1; }
   });
   const last = view[view.length - 1].c;
@@ -198,53 +187,12 @@ function draw() {
   ctx.fillText(lo.toLocaleString(), 2, Y(lo)); ctx.fillText(hi.toLocaleString(), 2, Y(hi));
   ctx.fillStyle = '#8B95A1';
   const daily = bucketSec >= 86400;
-  for (let g = 0; g < 4; g++) { const c = view[Math.floor((n - 1) * g / 3)]; if (c) ctx.fillText(fmtT(c.t, daily), 52 + slot * Math.floor((n - 1) * g / 3), 258); }
+  for (let g = 0; g < 4; g++) { const c = candles[Math.floor((n - 1) * g / 3)]; if (c) ctx.fillText(fmtT(c.t, daily), 52 + slot * Math.floor((n - 1) * g / 3), 258); }
   const first = view[0], chg = (last - first.o) / first.o * 100;
-  const pos = viewEnd === 0 ? '라이브' : `과거 ${viewEnd}봉 전`;
-  document.getElementById('range').textContent = `보기 ${n}봉 (${pos}) · 전체 ${candles.length}봉 · 고 ${fmt(hi)} · 저 ${fmt(lo)} · 첫봉 시가 대비 ${chg >= 0 ? '+' : ''}${chg.toFixed(2)}% · 거래량 막대는 실제 체결 합계`;
-  document.getElementById('liveBadge').textContent = viewEnd === 0 ? '' : '과거 보는 중 — ● 라이브를 누르면 최신으로';
-  // 십자선: 호버/탭한 봉에 세로+가로 점선 + 툴팁
-  if (hoverIdx != null && hoverIdx >= 0 && hoverIdx < n) {
-    const hc = view[hoverIdx], hx = 52 + slot * hoverIdx + slot / 2, hy = Y(hc.c);
-    ctx.setLineDash([4, 4]); ctx.strokeStyle = '#8B95A1'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(hx, PT); ctx.lineTo(hx, PT + PH + VH + 8); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(52, hy); ctx.lineTo(700, hy); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = '#191F28';
-    ctx.fillRect(hx - 2, PT + PH + VH + 8, 4, 4);
-    showTip(hx, hy, hc);
-  } else {
-    hideTip();
-  }
-}
-function tipDate(t) {
-  const d = new Date(t), p = (x) => String(x).padStart(2, '0');
-  return bucketSec >= 86400 ? `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}` : `${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
-}
-function showTip(hx, hy, c) {
-  const tip = document.getElementById('chartTip'), cv = document.getElementById('candle');
-  const rect = cv.getBoundingClientRect(), k = (rect.width || 700) / 700;
-  const col = c.c >= c.o ? UP : DOWN;
-  tip.innerHTML = `<b>${tipDate(c.t)}</b> <b style="color:${col}">${c.c >= c.o ? '▲' : '▼'} ${c.c.toLocaleString()}원</b><br>시가 ${c.o.toLocaleString()} · 고가 ${c.h.toLocaleString()}<br>저가 ${c.l.toLocaleString()} · 종가 ${c.c.toLocaleString()}<br>거래량 ${c.v ? c.v.toLocaleString() + '주' : '-'}`;
-  tip.style.display = 'block';
-  const tw = tip.offsetWidth, th = tip.offsetHeight;
-  let lx = hx * k + 12, ly = hy * k - th - 10;
-  if (lx + tw > rect.width) lx = hx * k - tw - 12;
-  if (ly < 0) ly = hy * k + 12;
-  tip.style.left = lx + 'px'; tip.style.top = ly + 'px';
-}
-function hideTip() { document.getElementById('chartTip').style.display = 'none'; }
-function hoverFromEvent(e) {
-  const cv = document.getElementById('candle'), rect = cv.getBoundingClientRect();
-  const view = viewSlice(), n = view.length;
-  if (!n) return null;
-  const k = 700 / (rect.width || 700);
-  const x = (e.clientX - rect.left) * k;
-  const slot = (700 - 52) / n;
-  const idx = Math.floor((x - 52) / slot);
-  return (idx >= 0 && idx < n) ? idx : null;
+  document.getElementById('range').textContent = `보기 ${n}봉${viewEnd > 0 ? ` (과거 ${viewEnd}봉 전)` : ''} · 전체 ${candles.length}봉 · 고 ${fmt(hi)} · 저 ${fmt(lo)} · 첫봉 시가 대비 ${chg >= 0 ? '+' : ''}${chg.toFixed(2)}% · 거래량 막대는 실제+가상`;
 }
 // 실시간 캔들 갱신: 진행 중 봉은 시가 유지·고/저/종가만 갱신, 주기 경계면 새 봉 push.
-// 과거를 보는 중(viewEnd>0)이면 차트를 점프시키지 않고 조용히 반영.
+// 직접 그린 canvas라 draw()+renderHead() 재호출이 chart.update() 역할을 함.
 function updateLiveCandle(price, atMs) {
   if (!candles.length || !Number.isFinite(price)) return;
   const b = Math.floor((atMs || Date.now()) / 1000 / bucketSec) * bucketSec;
@@ -253,14 +201,9 @@ function updateLiveCandle(price, atMs) {
     last.h = Math.max(last.h, price);
     last.l = Math.min(last.l, price);
     last.c = price;
-  } else if (Math.floor(last.t / 1000) < b) {
-    // 빈 봉이 생겼다면 전 종가로 메워서 공백 없이 연결
-    for (let fb = Math.floor(last.t / 1000) + bucketSec; fb < b; fb += bucketSec) {
-      candles.push({ t: fb * 1000, o: last.c, h: last.c, l: last.c, c: last.c, v: 0, flat: true });
-    }
-    candles.push({ t: b * 1000, o: last.c, h: Math.max(last.c, price), l: Math.min(last.c, price), c: price, v: 0 });
   } else {
-    return;
+    candles.push({ t: b * 1000, o: price, h: price, l: price, c: price, v: 0 });
+    if (candles.length > 200) candles.shift();
   }
   livePrice = price;
   draw();
@@ -275,16 +218,14 @@ function dayBase() {
   return allPts.length ? allPts[0].price : (cur ? cur.cur_price : 0);
 }
 function paintPrice(px) {
-  // 현재가 색상은 실시간 틱이 아닌 당일 변동 기준 + 변경 시 팝 애니메이션
+  // 현재가 색상은 실시간 틱이 아닌 당일 변동 기준
   const pe = document.getElementById('price');
   pe.textContent = fmt(px);
-  const base = dayBase();
-  pe.style.color = px >= base ? UP : DOWN;
-  pe.classList.remove('tick'); void pe.offsetWidth; pe.classList.add('tick');
+  pe.style.color = px >= dayBase() ? UP : DOWN;
 }
 function renderHead() {
   if (!cur || !candles.length) return;
-  document.getElementById('title').innerHTML = `${cur.name} (${cur.code})${cur.status === '정지' ? ' · 정지' : ''}${cur.tags ? `<span class="tagpill">${cur.tags}</span>` : ''}`;
+  document.getElementById('title').textContent = cur.name + ' (' + cur.code + ')' + (cur.stock_type === 'bluechip' ? ' · 대장주' : '') + (cur.status === '정지' ? ' · 정지' : '');
   paintPrice(cur.cur_price);
   const base = dayBase();
   const d = cur.cur_price - base, r = base ? d / base * 100 : 0;
@@ -295,6 +236,22 @@ function renderHead() {
   } else {
     el.textContent = `${d >= 0 ? '+' : ''}${d.toLocaleString()}원 (${r >= 0 ? '+' : ''}${r.toFixed(2)}%) 당일 시가 대비`;
     el.style.color = d >= 0 ? UP : DOWN;
+  }
+  // 서킷브레이커 표기: 상한가킷/하한가킷 횟수 + 일시정지 + 60% 당일정지
+  const cb = cur.cb, cbel = document.getElementById('cbLine');
+  if (cb && (cb.up_kits > 0 || cb.down_kits > 0 || cb.halted || cb.paused)) {
+    let extra = '';
+    if (cb.paused && cb.resume_at) {
+      const rt = new Date(String(cb.resume_at).replace(' ', 'T') + 'Z');
+      const p = (x) => String(x).padStart(2, '0');
+      extra = ` · 일시정지 중 (${p(rt.getHours())}:${p(rt.getMinutes())} 재개)`;
+    }
+    if (cb.halted) extra += ` · ${cb.halt_side}한가 도달, 당일 거래정지`;
+    cbel.textContent = `서킷브레이커 · 상한가킷 ${cb.up_kits}회 · 하한가킷 ${cb.down_kits}회${extra}`;
+    cbel.style.color = (cb.halted || cb.paused) ? '#8B95A1' : (cb.up_kits >= cb.down_kits ? UP : DOWN);
+    if (cb.halted || cb.paused) { el.textContent = cb.halted ? '서킷브레이커 발동 · 당일 거래정지' : '서킷브레이커 발동 · 거래 일시정지 중'; el.style.color = '#8B95A1'; }
+  } else {
+    cbel.textContent = '';
   }
   let hi = -Infinity, lo = Infinity;
   for (const c of candles) { hi = Math.max(hi, c.h); lo = Math.min(lo, c.l); }
@@ -314,29 +271,29 @@ function renderHead() {
 }
 function renderBook(flash) {
   if (!cur) return;
-  let seed = cur.cur_price + (flash ? 0 : 7);
-  const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
-  const step = Math.max(10, Math.round(cur.cur_price * 0.003));
-  let html = '', askQ = 0, bidQ = 0;
-  const rows = [];
-  for (let i = 5; i >= 1; i--) { const px = cur.cur_price + step * i, q = Math.floor(rnd() * 400) + 20; askQ += q; rows.push({ side: 'ask', px, q }); }
-  for (let i = 1; i <= 5; i++) { const px = cur.cur_price - step * i, q = Math.floor(rnd() * 400) + 20; bidQ += q; rows.push({ side: 'bid', px, q }); }
-  const mx = Math.max(askQ, bidQ, 1);
+  api('/api/trade/book?code=' + encodeURIComponent(code)).then(book => {
+    const rows = [];
+    let askQ = 0, bidQ = 0;
+    for (const a of book.asks.slice(0, 5)) { askQ += a.q; rows.push({ side: 'ask', px: a.px, q: a.q }); }
+    for (const b of book.bids.slice(0, 5)) { bidQ += b.q; rows.push({ side: 'bid', px: b.px, q: b.q }); }
+    const mx = Math.max(askQ, bidQ, 1);
+    let html = '';
   for (const r of rows) {
     const col = r.side === 'ask' ? DOWN : UP, tag = r.side === 'ask' ? '매도' : '매수';
     html += `<div class="row ${r.side}${flash ? ' flash' : ''}" data-px="${r.px}" data-side="${r.side}"><span style="color:${col};font-weight:800">${tag} ${r.px.toLocaleString()}</span><span style="text-align:right">${r.q}주</span><span style="text-align:right;color:var(--muted)">${(r.px * r.q / 10000).toFixed(0)}만원</span><span class="bar" style="width:${Math.min(90, r.q / (mx / 5) * 10)}%"></span></div>`;
   }
   document.getElementById('ob').innerHTML = html;
   const st = Number(document.getElementById('obMeta').dataset.strength || 100);
-  document.getElementById('obMeta').innerHTML = `매도 총잔량 <b>${askQ.toLocaleString()}주</b> · 매수 총잔량 <b>${bidQ.toLocaleString()}주</b> · 체결강도 <b style="color:${st >= 100 ? UP : DOWN}">${st}%</b> (실제 체결 기준) · 클릭하면 주문에 반영`;
+  document.getElementById('obMeta').innerHTML = `매도 총잔량 <b>${askQ.toLocaleString()}주</b> · 매수 총잔량 <b>${bidQ.toLocaleString()}주</b> · 체결강도 <b style="color:${st >= 100 ? UP : DOWN}">${st}%</b> (실제 체결 기준) · 클릭하면 주문에 반영 · 실제 체결은 이 호가대로 나눠 체결`;
   document.querySelectorAll('#ob .row').forEach(el => el.onclick = () => {
     const px = Number(el.dataset.px), side = el.dataset.side;
-    if (side === 'ask') { openSheet('buy'); sheetMode = 'amt'; syncModeUI(); document.getElementById('sheetQty').value = px; updTotal(); ttoast(`${px.toLocaleString()}원 매도호가 클릭 → 구매 금액에 반영 (시장가 체결)`); }
+    if (side === 'ask') { openSheet('buy'); sheetMode = 'amt'; syncModeUI(); document.getElementById('sheetQty').value = px; updTotal(); ttoast(`${px.toLocaleString()}원 매도호가 클릭 → 구매 금액에 반영 (호가 소진 시 윗호가로 슬리피지 체결)`); }
     else {
       if (myQty < 1) return ttoast('보유 주식이 없어요');
-      openSheet('sell'); sheetMode = 'qty'; syncModeUI(); document.getElementById('sheetQty').value = 1; updTotal(); ttoast(`${px.toLocaleString()}원 매수호가 클릭 → 판매 수량에 반영 (시장가 체결)`);
+      openSheet('sell'); sheetMode = 'qty'; syncModeUI(); document.getElementById('sheetQty').value = 1; updTotal(); ttoast(`${px.toLocaleString()}원 매수호가 클릭 → 판매 수량에 반영 (호가 소진 시 아랫호가로 슬리피지 체결)`);
     }
   });
+  }).catch(() => { /* 호가 조회 실패 시 무시 */ });
 }
 function renderTape() {
   const el = document.getElementById('tape');
@@ -372,6 +329,17 @@ async function renderPosts() {
   document.getElementById('posts').innerHTML = ps.slice(0, 5).map(p => `<div class="post" data-id="${p.id}" style="cursor:pointer"><b>${p.title}</b> ${p.isHolder ? '<span class="pill p-up">보유중</span>' : ''}<br><small>${p.nickname} · 좋아요 ${p.likes} · 댓글 ${p.comment_cnt}</small></div>`).join('') || '<p style="font-size:13px;color:var(--muted)">첫 글을 남겨보세요.</p>';
   document.querySelectorAll('#posts .post').forEach(el => el.onclick = () => location.href = '/post.html?id=' + el.dataset.id);
 }
+async function renderReserves() {
+  try {
+    const rs = await api('/api/trade/reserves');
+    const mine = rs.filter(r => r.stock_code === code);
+    document.getElementById('rvList').innerHTML = mine.map(r => `<div class="post"><b>${r.target_price.toLocaleString()}원 × ${r.qty}주</b> <span class="pill ${r.status === '대기' ? 'p-gray' : r.status === '체결' ? 'p-up' : 'p-down'}">${r.status}</span><br><small>${String(r.created_at).slice(0, 16)}${r.memo ? ' · ' + r.memo : ''}</small>${r.status === '대기' ? ` <button class="follow-btn" data-rvcancel="${r.id}">취소</button>` : ''}</div>`).join('') || '<p style="font-size:13px;color:var(--muted)">대기 중인 예약이 없어요.</p>';
+    document.querySelectorAll('[data-rvcancel]').forEach(b => b.onclick = async () => {
+      await api(`/api/trade/reserves/${b.dataset.rvcancel}`, 'DELETE');
+      ttoast('예약을 취소했어요'); renderReserves();
+    });
+  } catch (e) { /* 무시 */ }
+}
 function paintWatch() {
   let w = []; try { w = JSON.parse(localStorage.getItem('watch') || '[]'); } catch (e) {}
   document.getElementById('watchBtn').textContent = w.includes(code) ? '★ 관심중' : '☆ 관심';
@@ -382,30 +350,14 @@ async function renderNews() {
     document.getElementById('news').innerHTML = ns.slice(0, 5).map(n => `<div class="post"><b>${n.title}</b><br><small>${String(n.created_at).slice(0, 16)} · ${n.scope}${n.pinned ? ' · 고정' : ''}</small><p style="font-size:13px;margin-top:4px">${n.body}</p></div>`).join('') || '<p style="font-size:13px;color:var(--muted)">아직 뉴스가 없어요. 잠시 후 자동 속보가 뜹니다.</p>';
   } catch (e) { /* 비로그인도 조회 가능, 실패 시 무시 */ }
 }
-function histLimit() { return bucketSec >= 86400 ? 2000 : 500; } // 1일·1주·1달은 더 많이
-async function loadMore() {
-  if (loadingMore || !hasMore || !oldestAt) return ttoast('더 볼 과거 기록이 없어요');
-  loadingMore = true;
-  try {
-    const h = await api(`/api/stocks/${encodeURIComponent(code)}/history?limit=${histLimit()}&before=` + encodeURIComponent(oldestAt));
-    if (h.points && h.points.length) {
-      allPts = [...h.points, ...allPts];
-      hasMore = h.hasMore; oldestAt = h.oldestAt;
-      buildCandles();
-      draw();
-      ttoast(`과거 ${h.points.length}개 기록 추가`);
-    } else { hasMore = false; ttoast('더 볼 과거 기록이 없어요'); }
-  } catch (e) { ttoast('과거 로드 실패: ' + e.message); }
-  loadingMore = false;
-}
 async function load(flash) {
   const s = await api('/api/stocks/' + encodeURIComponent(code));
   const changed = cur && cur.cur_price !== s.cur_price;
   cur = s; myQty = s.qty || 0; myAvg = s.avg_price;
   try { const pf = await api('/api/portfolio'); myCash = pf.cash; document.getElementById('cashLine').textContent = `주식 살 수 있는 돈 ${fmt(pf.cash)}`; } catch (e) {}
   document.getElementById('hold').innerHTML = s.isHolder ? `보유중 <span class="pill p-up">${s.qty}주 · 내가 산 평균 가격 ${fmt(s.avg_price)}</span>` : '아직 갖고 있지 않아요';
-  const h = await api(`/api/stocks/${encodeURIComponent(code)}/history?limit=${histLimit()}`);
-  allPts = h.points; hasMore = h.hasMore; oldestAt = h.oldestAt;
+  const h = await api(`/api/stocks/${encodeURIComponent(code)}/history?limit=200`);
+  allPts = h.points;
   const last = allPts[allPts.length - 1];
   if (last && last.price !== s.cur_price) allPts.push({ price: s.cur_price, at: new Date().toISOString() });
   try { const t = await api(`/api/stocks/${encodeURIComponent(code)}/trades?limit=200`); trades = t.trades; } catch (e) { trades = []; }
@@ -414,6 +366,7 @@ async function load(flash) {
   renderHead(); draw(); renderBook(flash || changed); renderTape();
   await renderPosts();
   await renderNews();
+  await renderReserves();
   paintWatch();
 }
 document.getElementById('watchBtn').onclick = () => {
@@ -421,51 +374,31 @@ document.getElementById('watchBtn').onclick = () => {
   w = w.includes(code) ? w.filter(x => x !== code) : [...w, code];
   localStorage.setItem('watch', JSON.stringify(w)); paintWatch(); ttoast(w.includes(code) ? '관심 종목에 담았어요' : '관심을 해제했어요');
 };
-document.querySelectorAll('#bucket button').forEach(b => b.onclick = async () => {
-  document.querySelectorAll('#bucket button').forEach(x => x.classList.remove('on')); b.classList.add('on');
-  bucketSec = Number(b.dataset.b); viewEnd = 0; hoverIdx = null; hideTip();
-  try {
-    const h = await api(`/api/stocks/${encodeURIComponent(code)}/history?limit=${histLimit()}`);
-    allPts = h.points; hasMore = h.hasMore; oldestAt = h.oldestAt;
-  } catch (e) { /* 기존 데이터로 폴백 */ }
-  buildCandles(); if (cur) { anchorPrice = cur.cur_price; livePrice = cur.cur_price; } renderHead(); draw();
-});
-// 차트 조작: 드래그 팬(좌우) + 휠 줌(봉 개수) + 버튼
-document.getElementById('prevBtn').onclick = () => { viewEnd = Math.min(Math.max(0, candles.length - 1), viewEnd + viewCount); draw(); };
-document.getElementById('nextBtn').onclick = () => { viewEnd = Math.max(0, viewEnd - viewCount); draw(); };
+document.querySelectorAll('#bucket button').forEach(b => b.onclick = () => { document.querySelectorAll('#bucket button').forEach(x => x.classList.remove('on')); b.classList.add('on'); bucketSec = Number(b.dataset.b); viewEnd = 0; buildCandles(); if (cur) { anchorPrice = cur.cur_price; livePrice = cur.cur_price; } renderHead(); draw(); });
+// 좌우 스크롤: 버튼 + 드래그
+document.getElementById('prevBtn').onclick = () => { viewEnd = Math.min(Math.max(0, candles.length - 1), viewEnd + viewN); draw(); };
+document.getElementById('nextBtn').onclick = () => { viewEnd = Math.max(0, viewEnd - viewN); draw(); };
 document.getElementById('liveBtn').onclick = () => { viewEnd = 0; draw(); };
-document.getElementById('moreBtn').onclick = loadMore;
-(function bindChartNav() {
+(function bindScroll() {
   const cv = document.getElementById('candle');
-  let dragX = null, dragEnd = 0, moved = false;
-  cv.addEventListener('pointerdown', (e) => { dragX = e.clientX; dragEnd = viewEnd; moved = false; cv.setPointerCapture(e.pointerId); cv.style.cursor = 'grabbing'; });
+  let sx = null, sEnd = 0;
+  cv.addEventListener('pointerdown', (e) => { sx = e.clientX; sEnd = viewEnd; cv.setPointerCapture(e.pointerId); });
   cv.addEventListener('pointermove', (e) => {
-    if (dragX == null) {
-      if (e.pointerType === 'mouse') { hoverIdx = hoverFromEvent(e); draw(); } // 마우스 호버 툴팁
-      return;
-    }
-    const rect = cv.getBoundingClientRect(), slot = (rect.width || 700) / Math.max(1, viewSlice().length);
-    const dx = dragX - e.clientX;
-    if (Math.abs(dx) > 8) { moved = true; hoverIdx = null; }
-    if (moved) {
-      const dCandles = Math.round(dx / Math.max(4, slot));
-      viewEnd = Math.min(Math.max(0, candles.length - 1), Math.max(0, dragEnd + dCandles));
-      draw();
-    }
-  });
-  const endDrag = (e) => {
-    if (dragX != null && !moved && e && e.clientX != null) hoverIdx = hoverFromEvent(e); // 탭(터치 포함) 툴팁
-    dragX = null; cv.style.cursor = 'grab'; draw();
-  };
-  cv.addEventListener('pointerup', endDrag);
-  cv.addEventListener('pointercancel', () => { dragX = null; cv.style.cursor = 'grab'; });
-  cv.addEventListener('pointerleave', () => { if (dragX == null) { hoverIdx = null; draw(); } });
-  cv.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    viewCount = Math.min(150, Math.max(10, viewCount + (e.deltaY > 0 ? 5 : -5)));
+    if (sx == null) return;
+    if (Math.abs(sx - e.clientX) < 8) return;
+    viewEnd = Math.min(Math.max(0, candles.length - 1), Math.max(0, sEnd + Math.round((sx - e.clientX) / 12)));
     draw();
-  }, { passive: false });
+  });
+  const up = () => { sx = null; cv.style.cursor = 'grab'; };
+  cv.addEventListener('pointerup', up);
+  cv.addEventListener('pointercancel', up);
 })();
+document.querySelectorAll('#infoTabs button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#infoTabs button').forEach(x => x.classList.remove('on'));
+  b.classList.add('on');
+  document.getElementById('postsWrap').style.display = b.dataset.t === 'posts' ? '' : 'none';
+  document.getElementById('newsWrap').style.display = b.dataset.t === 'news' ? '' : 'none';
+});
 document.getElementById('buyFab').onclick = () => openSheet('buy');
 document.getElementById('sellFab').onclick = () => openSheet('sell');
 document.getElementById('sheetBack').onclick = (e) => { if (e.target.id === 'sheetBack') e.target.classList.remove('show'); };
@@ -485,7 +418,18 @@ document.getElementById('sheetConfirm').onclick = async () => {
     document.getElementById('sheetBack').classList.remove('show');
     ttoast(sheetSide === 'buy' ? `구매가 완료되었어요! ${qty}주 · ${fmt(r.price)}` : `판매가 완료되었어요! ${qty}주 · ${fmt(r.price)}`);
     load(true);
-  } catch (e) { ttoast((sheetSide === 'buy' ? '구매' : '판매') + ' 실패: ' + e.message); }
+  } catch (e) { ttoast((sheetSide === 'buy' ? '구매' : '판매') + ' 실패: ' + tradeErr(e)); }
+};
+document.getElementById('rvBtn').onclick = async () => {
+  const target = Number(document.getElementById('rvPrice').value);
+  const qty = Math.floor(Number(document.getElementById('rvQty').value));
+  if (!Number.isInteger(target) || target < 1) return ttoast('목표가를 입력해 주세요');
+  if (!Number.isInteger(qty) || qty < 1) return ttoast('1주 이상 입력해 주세요');
+  try {
+    await api('/api/trade/reserve', 'POST', { code, qty, target_price: target });
+    ttoast(`${target.toLocaleString()}원 이하가 되면 ${qty}주 자동 매수돼요`);
+    renderReserves();
+  } catch (e) { ttoast('예약 실패: ' + tradeErr(e)); }
 };
 document.getElementById('logout').onclick = async (e) => { e.preventDefault(); await api('/api/auth/logout', 'POST'); location.href = '/login.html'; };
 document.getElementById('writeBtn').onclick = async () => {
@@ -504,14 +448,14 @@ setInterval(() => { load(false); }, 20000);
 // 마이크로틱(2초): 폴링 사이 진행 중 봉의 고/저/종가만 미세 변동 → 차트가 살아 움직이게
 setInterval(() => {
   if (!cur || !candles.length || anchorPrice == null || livePrice == null) return;
-  if (cur.status === '정지') return; // 정지 종목은 서버 시세·차트 모두 동결
+  if (cur.status === '정지' || cur.halted || (cur.cb && (cur.cb.halted || cur.cb.paused))) return; // 정지·서킷 발동 종목은 화면 틱도 동결
   const drift = (Math.random() - 0.5) * 2 * MICRO_RANGE * anchorPrice;
   let np = Math.round(livePrice + drift + (anchorPrice - livePrice) * MEAN_REVERT);
   const cap = anchorPrice * MICRO_CAP;
   np = Math.max(100, Math.min(anchorPrice + cap, Math.max(anchorPrice - cap, np)));
   if (np === livePrice) return;
   updateLiveCandle(np);
-  paintPrice(np); // 당일 기준 색상 + 팝 애니메이션
+  paintPrice(np); // 당일 기준 색상 (틱 등락 아님)
 }, 2000);
 </script>
 </body>

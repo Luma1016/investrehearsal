@@ -14,7 +14,7 @@
       <a class="on" href="/dashboard.html">◉ MY 홈</a>
       <a href="/board.html">♡ 피드</a>
       <a href="/stocks.html">▦ 종목 탐색</a>
-      <a href="/dashboard.html">🏆 챌린지</a>
+      <a href="/challenge.html">🏆 챌린지</a>
       <small>MENU</small>
       <a href="/portfolio.html">📊 포트폴리오</a>
       <a href="/history.html">🧾 거래내역</a>
@@ -22,6 +22,7 @@
     </div>
   </aside>
   <main class="main">
+    <div id="idxStrip" style="display:flex;gap:10px;overflow-x:auto;margin-bottom:14px"></div>
     <div class="hero">
       <div class="label">내 자산</div>
       <div class="total" id="kTotal">-</div>
@@ -50,6 +51,7 @@
       <div><h1 style="font-size:15px"><span id="nick">...</span></h1><p id="meta" style="font-size:12px">확인 중...</p></div>
     </div>
     <div class="mini"><h3>실시간 종목</h3><div id="live"></div></div>
+    <div class="mini"><h3>챌린지 TOP3 <a href="/challenge.html" style="margin-left:auto;font-size:11px;color:var(--muted);text-decoration:none">전체 →</a></h3><div id="chTop"></div></div>
     <p class="note">수수료 0원 · 시장가 단일가 · 가상호가는 표시용</p>
   </div>
 </div>
@@ -62,6 +64,17 @@ function coinRow(s, right1, right2, badge) {
   return `<div class="coin" data-c="${s.code}"><div class="logo-c">${ic}</div><div><div class="nm">${s.name}</div><div class="sub">${s.code} · ${right2 || ''}</div></div><div class="right"><div class="amt">${right1}</div>${badge || ''}</div></div>`;
 }
 let portfolio = null;
+async function loadIndices() {
+  try {
+    const idx = await api('/api/indices');
+    document.getElementById('idxStrip').innerHTML = idx.map(x => {
+      const col = x.dir === 'up' ? '#F04452' : x.dir === 'down' ? '#3182F6' : '#8B95A1';
+      const arrow = x.dir === 'up' ? '▲' : x.dir === 'down' ? '▼' : '-';
+      const sign = x.change_pct >= 0 ? '+' : '';
+      return `<div class="mini" style="min-width:170px;margin:0"><h3>${x.name}</h3><div style="font-size:21px;font-weight:900;letter-spacing:-0.3px">${x.value.toLocaleString()}</div><div style="font-size:12px;font-weight:800;color:${col}">${arrow} ${sign}${x.change_pct.toFixed(2)}%</div></div>`;
+    }).join('') || '';
+  } catch (e) { /* 무시 */ }
+}
 document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => {
   document.querySelectorAll('#tabs button').forEach(x => x.classList.remove('on'));
   b.classList.add('on');
@@ -106,6 +119,15 @@ function bindCoins() { document.querySelectorAll('.coin').forEach(el => el.oncli
   const mine = await api('/api/posts?mine=1');
   document.getElementById('myPosts').innerHTML = mine.slice(0, 2).map(p => `<div class="post" data-id="${p.id}" style="cursor:pointer"><b>${p.title}</b> <small>· 좋아요 ${p.likes} · 댓글 ${p.comment_cnt}</small><br>${p.body.slice(0, 60)}</div>`).join('') || '<p style="font-size:13px;color:var(--muted)">아직 쓴 글이 없습니다.</p>';
   document.querySelectorAll('#myPosts .post').forEach(el => el.onclick = () => location.href = '/post.html?id=' + el.dataset.id);
+  await loadIndices();
+  setInterval(loadIndices, 30000); // 30초마다 지수 갱신
+  try {
+    const ch = await api('/api/challenges/weekly');
+    document.getElementById('chTop').innerHTML = ch.board.slice(0, 3).map(x => {
+      const col = x.return_pct >= 0 ? '#F04452' : '#3182F6';
+      return `<div class="tag"><span>${x.rank}위 ${x.nickname}</span><b style="color:${col}">${x.return_pct >= 0 ? '+' : ''}${x.return_pct.toFixed(2)}%</b></div>`;
+    }).join('') || '<p style="font-size:12px;color:var(--muted)">집계 중</p>';
+  } catch (e) { /* 무시 */ }
 })();
 document.getElementById('logout').onclick = async (e) => { e.preventDefault(); await api('/api/auth/logout', 'POST'); location.href = '/login.html'; };
 </script>

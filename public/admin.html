@@ -15,7 +15,7 @@
       <a href="/dashboard.html">◉ MY 홈</a>
       <a href="/board.html">♡ 피드</a>
       <a href="/stocks.html">▦ 종목 탐색</a>
-      <a href="/dashboard.html">🏆 챌린지</a>
+      <a href="/challenge.html">🏆 챌린지</a>
       <small>MENU</small>
       <a href="/portfolio.html">📊 포트폴리오</a>
       <a href="/history.html">🧾 거래내역</a>
@@ -36,12 +36,13 @@
         <button data-t="t2">블라인드·공지</button>
         <button data-t="t3">유저정지</button>
         <button data-t="t4">종목관리</button>
+        <button data-t="t5">지수관리</button>
       </div>
       <div id="t1" style="margin-top:12px">
         <h2>이벤트 생성 (즉시/예약)</h2>
         <div class="search"><input id="eCode" placeholder="종목코드"><input id="eType" placeholder="급등/급락/정지/배당" style="max-width:150px"><input id="eRate" placeholder="rate (예: 0.05)" style="max-width:120px"></div>
         <div class="search"><input id="eReason" placeholder="사유 (공시 본문)"><button class="follow-btn" id="eBtn">생성</button></div>
-        <table><tr><th>ID</th><th>종목</th><th>유형</th><th>rate</th><th>상태</th><th></th></tr><tbody id="eRows"></tbody></table>
+        <div style="max-height:260px;overflow:auto"><table><tr><th>ID</th><th>종목</th><th>유형</th><th>rate</th><th>상태</th><th></th></tr><tbody id="eRows"></tbody></table></div>
         <h2 style="margin-top:16px">가격 직접조작 (로그+공시 필수)</h2>
         <div class="search"><input id="pxCode" placeholder="종목코드"><input id="pxPrice" type="number" placeholder="새 가격"><input id="pxReason" placeholder="사유"></div>
         <button class="btn" id="pxBtn">가격 조정</button>
@@ -51,7 +52,9 @@
         <p style="font-size:11.5px;color:var(--muted);margin-top:6px">종목별 현재가 1건만 남기고 전체 삭제 · 보유·거래·자산 기록은 유지 · 이후 1분마다 새 기록 누적</p>
         <h2 style="margin-top:16px">랜덤 뉴스 (5~60분 자동 + 수동 발생)</h2>
         <button class="btn" id="newsBtn">뉴스 1건 즉시 발생</button>
-        <button class="btn" id="themeBtn" style="margin-top:8px">테마 뉴스 발생 (같은 태그 동시 변동)</button>
+        <h2 style="margin-top:16px">테마 이벤트 직접 발생 (같은 태그 동시 변동)</h2>
+        <div class="search"><input id="tTag" list="tagList" placeholder="태그 (비우면 랜덤)" style="max-width:150px"><datalist id="tagList"></datalist><input id="tType" placeholder="급등/급락 (비우면 랜덤)" style="max-width:150px"><input id="tRate" placeholder="rate 예: 0.05" style="max-width:110px"><input id="tMins" type="number" placeholder="지속분" style="max-width:90px"></div>
+        <button class="btn" id="themeBtn">테마 이벤트 발생</button>
         <p style="font-size:11.5px;color:var(--muted);margin-top:6px">자동으로 5~60분마다 속보+시세 이벤트 발생 · 진행중 3개 이상이면 스킵</p>
       </div>
       <div id="t2" style="margin-top:12px;display:none">
@@ -59,7 +62,7 @@
         <div class="search"><input id="nScope" placeholder="전체/종목" style="max-width:110px"><input id="nStock" placeholder="종목코드(종목시)" style="max-width:140px"><input id="nTitle" placeholder="제목"></div>
         <div class="search"><input id="nBody" placeholder="본문"><button class="follow-btn" id="nBtn">등록</button></div>
         <h2 style="margin-top:16px">공시·공지 목록 (수정·삭제)</h2>
-        <table><tr><th>ID</th><th>범위</th><th>제목</th><th>본문</th><th>고정</th><th></th></tr><tbody id="nRows"></tbody></table>
+        <div style="max-height:260px;overflow:auto"><table><tr><th>ID</th><th>범위</th><th>제목</th><th>본문</th><th>고정</th><th></th></tr><tbody id="nRows"></tbody></table></div>
         <h2 style="margin-top:16px">게시글 블라인드</h2>
         <div class="search"><input id="bId" type="number" placeholder="글 ID"><button class="follow-btn" id="bBlind">블라인드</button><button class="follow-btn" id="bUnblind">해제</button><button class="follow-btn" id="bDel">삭제</button></div>
       </div>
@@ -69,9 +72,15 @@
       </div>
       <div id="t4" style="margin-top:12px;display:none">
         <h2>종목 통합 관리 (추가·이름·주가·코드·상태·태그 한 번에)</h2>
-        <div class="search"><input id="sCode" placeholder="코드 (영문대문자·숫자 2~10자)" style="max-width:150px"><input id="sName" placeholder="종목 이름" style="max-width:140px"><input id="sPrice" type="number" placeholder="상장가 (100원 이상)" style="max-width:130px"><input id="sTags" placeholder="태그 (예: 2차전지)" style="max-width:130px"><button class="follow-btn" id="sAdd">추가</button></div>
-        <table><tr><th>코드</th><th>이름</th><th>현재가 → 새 주가</th><th>상태</th><th>태그</th><th>보유자·거래량</th><th></th></tr><tbody id="sRows"></tbody></table>
-        <p style="font-size:11.5px;color:var(--muted);margin-top:6px">행별 저장 버튼 하나로 이름·코드·상태·주가·태그를 한 번에 반영 (주가 변경은 조작로그+공시 자동 기록, 코드 변경 시 보유·거래·게시글 함께 이전, 같은 태그끼리 테마 뉴스 동시 발생)</p>
+        <div class="search"><input id="sCode" placeholder="코드 (영문대문자·숫자 2~10자)" style="max-width:140px"><input id="sName" placeholder="종목 이름" style="max-width:130px"><input id="sPrice" type="number" placeholder="상장가 (100원 이상)" style="max-width:120px"><input id="sTags" placeholder="태그 (예: 2차전지)" style="max-width:110px"><select id="sType" style="max-width:100px"><option value="normal">일반</option><option value="bluechip">대장주</option></select><button class="follow-btn" id="sAdd">추가</button></div>
+        <table><tr><th>코드</th><th>이름</th><th>현재가 → 새 주가</th><th>상태</th><th>태그</th><th>유형</th><th>보유자·거래량</th><th></th></tr><tbody id="sRows"></tbody></table>
+        <p style="font-size:11.5px;color:var(--muted);margin-top:6px">행별 저장 버튼 하나로 이름·코드·상태·주가·태그·유형을 한 번에 반영 (주가 변경은 조작로그+공시 자동 기록, 코드 변경 시 보유·거래·게시글 함께 이전, 같은 태그끼리 테마 뉴스 동시 발생, 대장주는 변동 작게·거래량 크게)</p>
+      </div>
+      <div id="t5" style="margin-top:12px;display:none">
+        <h2>시장 지수 추가 (대시보드 상단 위젯)</h2>
+        <div class="search"><input id="xName" placeholder="지수 이름 (예: 푸드외식 지수)" style="max-width:190px"><select id="xKind" style="max-width:110px"><option value="전체">전체</option><option value="태그">태그</option><option value="대장주">대장주</option></select><input id="xTag" list="tagList" placeholder="태그(태그형만)" style="max-width:130px"><input id="xBase" type="number" placeholder="기준값 (기본 1000)" style="max-width:130px"><button class="follow-btn" id="xAdd">추가</button></div>
+        <table><tr><th>ID</th><th>이름</th><th>범위</th><th>기준값</th><th></th></tr><tbody id="xRows"></tbody></table>
+        <p style="font-size:11.5px;color:var(--muted);margin-top:6px">지수값 = 기준값 × (1 + 편입종목 당일 평균등락률) · 정지 종목 제외 · 30초마다 재계산</p>
       </div>
     </div>
   </main>
@@ -89,7 +98,7 @@
 document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
   document.querySelectorAll('.tabs button').forEach(x => x.classList.remove('on'));
   b.classList.add('on');
-  ['t1', 't2', 't3', 't4'].forEach(t => document.getElementById(t).style.display = t === b.dataset.t ? '' : 'none');
+  ['t1', 't2', 't3', 't4', 't5'].forEach(t => document.getElementById(t).style.display = t === b.dataset.t ? '' : 'none');
 });
 async function loadAll() {
   const s = await api('/api/admin/summary');
@@ -107,7 +116,8 @@ async function loadAll() {
   document.querySelectorAll('[data-stop]').forEach(b => b.onclick = async () => { await api(`/api/admin/users/${b.dataset.stop}/stop`, 'PUT', {}); loadAll(); });
   document.querySelectorAll('[data-unstop]').forEach(b => b.onclick = async () => { await api(`/api/admin/users/${b.dataset.unstop}/stop`, 'PUT', { status: '정상' }); loadAll(); });
   const st = await api('/api/admin/stocks');
-  document.getElementById('sRows').innerHTML = st.map(s => `<tr><td><input data-code="${s.code}" value="${s.code}" style="max-width:90px"></td><td><input data-name="${s.code}" value="${s.name}" style="max-width:130px"></td><td>${Number(s.cur_price).toLocaleString()}원 → <input data-price="${s.code}" type="number" placeholder="새 주가" style="max-width:100px"></td><td><select data-status="${s.code}" data-orig="${s.status}"><option value="정상"${s.status === '정상' ? ' selected' : ''}>정상</option><option value="정지"${s.status === '정지' ? ' selected' : ''}>정지</option></select></td><td><input data-tags="${s.code}" value="${s.tags || ''}" style="max-width:90px"></td><td style="color:var(--muted);font-size:12px">${s.holders}명 · ${Number(s.total_vol).toLocaleString()}주</td><td><button class="follow-btn" data-save="${s.code}">저장</button></td></tr>`).join('');
+  document.getElementById('tagList').innerHTML = [...new Set(st.map(s => s.tags).filter(Boolean))].map(t => `<option value="${t}">`).join('');
+  document.getElementById('sRows').innerHTML = st.map(s => `<tr><td><input data-code="${s.code}" value="${s.code}" style="max-width:90px"></td><td><input data-name="${s.code}" value="${s.name}" style="max-width:130px"></td><td>${Number(s.cur_price).toLocaleString()}원 → <input data-price="${s.code}" type="number" placeholder="새 주가" style="max-width:100px"></td><td><select data-status="${s.code}" data-orig="${s.status}"><option value="정상"${s.status === '정상' ? ' selected' : ''}>정상</option><option value="정지"${s.status === '정지' ? ' selected' : ''}>정지</option></select></td><td><input data-tags="${s.code}" value="${s.tags || ''}" style="max-width:90px"></td><td><select data-stype="${s.code}" data-orig="${s.stock_type || 'normal'}"><option value="normal"${(s.stock_type || 'normal') === 'normal' ? ' selected' : ''}>일반</option><option value="bluechip"${s.stock_type === 'bluechip' ? ' selected' : ''}>대장주</option></select></td><td style="color:var(--muted);font-size:12px">${s.holders}명 · ${Number(s.total_vol).toLocaleString()}주</td><td><button class="follow-btn" data-save="${s.code}">저장</button></td></tr>`).join('');
   document.querySelectorAll('[data-save]').forEach(b => b.onclick = async () => {
     const oldC = b.dataset.save;
     const codeEl = document.querySelector(`[data-code="${oldC}"]`);
@@ -115,6 +125,7 @@ async function loadAll() {
     const stEl = document.querySelector(`[data-status="${oldC}"]`);
     const pxEl = document.querySelector(`[data-price="${oldC}"]`);
     const tagEl = document.querySelector(`[data-tags="${oldC}"]`);
+    const typeEl = document.querySelector(`[data-stype="${oldC}"]`);
     const newC = codeEl.value.trim().toUpperCase();
     try {
       const payload = {};
@@ -122,8 +133,9 @@ async function loadAll() {
       if (nameEl.value !== nameEl.defaultValue) payload.name = nameEl.value;
       if (stEl.value !== stEl.dataset.orig) payload.status = stEl.value;
       if (tagEl.value !== tagEl.defaultValue) payload.tags = tagEl.value;
+      if (typeEl.value !== typeEl.dataset.orig) payload.stock_type = typeEl.value;
       const target = newC && newC !== oldC ? newC : oldC;
-      const hasMeta = payload.new_code || payload.name || payload.status || payload.tags !== undefined;
+      const hasMeta = payload.new_code || payload.name || payload.status || payload.tags !== undefined || payload.stock_type;
       if (hasMeta) await api(`/api/admin/stocks/${encodeURIComponent(oldC)}`, 'PUT', payload);
       if (pxEl.value && Number(pxEl.value) > 0) await api(`/api/admin/stocks/${encodeURIComponent(target)}/price`, 'POST', { price: Number(pxEl.value), reason: '관리자 통합화면 조정' });
       if (!hasMeta && !(pxEl.value && Number(pxEl.value) > 0)) return toast('바뀐 내용이 없어요');
@@ -140,6 +152,17 @@ async function loadAll() {
   document.querySelectorAll('[data-ndel]').forEach(b => b.onclick = async () => {
     if (!confirm('이 공지를 삭제할까요?')) return;
     await api(`/api/admin/notices/${b.dataset.ndel}`, 'DELETE'); toast('삭제됨'); loadAll();
+  });
+  const xs = await api('/api/admin/indices');
+  document.getElementById('xRows').innerHTML = xs.map(x => `<tr><td>${x.id}</td><td><input data-xn="${x.id}" value="${String(x.name).replace(/"/g, '&quot;')}" style="max-width:140px"></td><td><select data-xk="${x.id}"><option value="전체"${x.kind === '전체' ? ' selected' : ''}>전체</option><option value="태그"${x.kind === '태그' ? ' selected' : ''}>태그</option><option value="대장주"${x.kind === '대장주' ? ' selected' : ''}>대장주</option></select> <input data-xt="${x.id}" value="${x.tag || ''}" style="max-width:90px"></td><td><input data-xb="${x.id}" type="number" value="${x.base_value}" style="max-width:90px"></td><td><button class="follow-btn" data-xsave="${x.id}">저장</button> <button class="follow-btn" data-xdel="${x.id}">삭제</button></td></tr>`).join('') || '<tr><td colspan=5 style="color:var(--muted)">없음</td></tr>';
+  document.querySelectorAll('[data-xsave]').forEach(b => b.onclick = async () => {
+    const id = b.dataset.xsave;
+    try { await api(`/api/admin/indices/${id}`, 'PUT', { name: document.querySelector(`[data-xn="${id}"]`).value, kind: document.querySelector(`[data-xk="${id}"]`).value, tag: document.querySelector(`[data-xt="${id}"]`).value, base_value: Number(document.querySelector(`[data-xb="${id}"]`).value) }); toast('지수 수정됨'); loadAll(); }
+    catch (e) { toast('수정 실패: ' + e.message); }
+  });
+  document.querySelectorAll('[data-xdel]').forEach(b => b.onclick = async () => {
+    if (!confirm('이 지수를 삭제할까요? 대시보드 위젯에서도 사라집니다.')) return;
+    await api(`/api/admin/indices/${b.dataset.xdel}`, 'DELETE'); toast('삭제됨'); loadAll();
   });
 }
 document.getElementById('eBtn').onclick = async () => {
@@ -159,14 +182,28 @@ document.getElementById('newsBtn').onclick = async () => {
   catch (e) { toast('뉴스 발생 스킵: ' + e.message); }
 };
 document.getElementById('themeBtn').onclick = async () => {
-  try { const n = await api('/api/admin/news/fire', 'POST', { theme: true }); toast(`테마 뉴스: [${n.theme}] ${n.codes.join(',')} ${n.type}`); loadAll(); }
-  catch (e) { toast('테마 뉴스 스킵: ' + e.message); }
+  const tag = document.getElementById('tTag').value.trim();
+  const type = document.getElementById('tType').value.trim();
+  const rate = Number(document.getElementById('tRate').value);
+  const mins = Number(document.getElementById('tMins').value);
+  const body = { theme: true };
+  if (tag) body.tag = tag;
+  if (type) body.type = type;
+  if (Number.isFinite(rate) && rate !== 0) body.rate = rate;
+  if (Number.isInteger(mins) && mins > 0) body.mins = mins;
+  try { const n = await api('/api/admin/news/fire', 'POST', body); toast(`테마 이벤트: [${n.theme}] ${n.codes.join(',')} ${n.type} ${(n.rate * 100).toFixed(1)}% ${n.mins}분`); loadAll(); }
+  catch (e) { toast('테마 발생 실패: ' + e.message); }
+};
+document.getElementById('xAdd').onclick = async () => {
+  const base = Number(document.getElementById('xBase').value);
+  try { await api('/api/admin/indices', 'POST', { name: document.getElementById('xName').value.trim(), kind: document.getElementById('xKind').value, tag: document.getElementById('xTag').value.trim(), base_value: document.getElementById('xBase').value ? base : undefined }); toast('지수 추가됨'); loadAll(); }
+  catch (e) { toast('추가 실패: ' + e.message); }
 };
 document.getElementById('bBlind').onclick = async () => { await api(`/api/admin/posts/${document.getElementById('bId').value}/blind`, 'POST'); toast('블라인드 처리'); loadAll(); };
 document.getElementById('bUnblind').onclick = async () => { await api(`/api/admin/posts/${document.getElementById('bId').value}/unblind`, 'POST'); toast('해제'); loadAll(); };
 document.getElementById('bDel').onclick = async () => { if (!confirm('삭제할까요?')) return; await api(`/api/admin/posts/${document.getElementById('bId').value}`, 'DELETE'); toast('삭제'); loadAll(); };
 document.getElementById('sAdd').onclick = async () => {
-  try { await api('/api/admin/stocks', 'POST', { code: document.getElementById('sCode').value.trim(), name: document.getElementById('sName').value.trim(), cur_price: Number(document.getElementById('sPrice').value), tags: document.getElementById('sTags').value.trim() }); toast('종목 추가됨 · 공시 발행'); loadAll(); }
+  try { await api('/api/admin/stocks', 'POST', { code: document.getElementById('sCode').value.trim(), name: document.getElementById('sName').value.trim(), cur_price: Number(document.getElementById('sPrice').value), tags: document.getElementById('sTags').value.trim(), stock_type: document.getElementById('sType').value }); toast('종목 추가됨 · 공시 발행'); loadAll(); }
   catch (e) { toast('추가 실패: ' + e.message); }
 };
 document.getElementById('logReset').onclick = async () => {

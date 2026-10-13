@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS stocks (
   cur_price INTEGER NOT NULL,
   status TEXT NOT NULL DEFAULT '정상' CHECK (status IN ('정상','정지')),
   tags TEXT NOT NULL DEFAULT '',
+  stock_type TEXT NOT NULL DEFAULT 'normal' CHECK (stock_type IN ('normal','bluechip')),
   updated_at DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
 );
 
@@ -81,6 +82,7 @@ CREATE TABLE IF NOT EXISTS notices (
   body TEXT NOT NULL,
   pinned INTEGER NOT NULL DEFAULT 0,
   by_admin INTEGER REFERENCES users(id),
+  expires_at DATETIME,
   created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
 );
 
@@ -104,4 +106,36 @@ CREATE TABLE IF NOT EXISTS price_logs (
   cause TEXT,
   by_admin INTEGER REFERENCES users(id),
   created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS reservations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  stock_code TEXT NOT NULL REFERENCES stocks(code),
+  side TEXT NOT NULL DEFAULT 'BUY' CHECK (side IN ('BUY','SELL')),
+  qty INTEGER NOT NULL CHECK (qty >= 1),
+  target_price INTEGER NOT NULL CHECK (target_price >= 1),
+  status TEXT NOT NULL DEFAULT '대기' CHECK (status IN ('대기','체결','취소')),
+  memo TEXT,
+  created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime')),
+  executed_at DATETIME
+);
+
+CREATE TABLE IF NOT EXISTS indices (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT '전체' CHECK (kind IN ('전체','태그','대장주')),
+  tag TEXT NOT NULL DEFAULT '',
+  base_value REAL NOT NULL DEFAULT 1000,
+  created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS cb_hits (
+  stock_code TEXT NOT NULL,
+  date TEXT NOT NULL,
+  side TEXT NOT NULL CHECK (side IN ('상한','하한')),
+  level INTEGER NOT NULL CHECK (level >= 1),
+  halt_until DATETIME NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime')),
+  PRIMARY KEY (stock_code, date, side, level)
 );

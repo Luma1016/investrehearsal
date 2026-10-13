@@ -5,7 +5,9 @@ const path = require('path');
 const db = require('./db'); // 시드 실행용 (import side-effect)
 const authRouter = require('./routes/auth');
 const stocksRouter = require('./routes/stocks');
-const tradeRouter = require('./routes/trade');
+const { router: tradeRouter } = require('./routes/trade');
+const { router: indicesRouter } = require('./routes/indices');
+const { router: challengeRouter } = require('./routes/challenge');
 const portfolioRouter = require('./routes/portfolio');
 const boardRouter = require('./routes/board');
 const adminRouter = require('./routes/admin');
@@ -39,9 +41,11 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/stocks', stocksRouter);
 app.use('/api/trade', tradeRouter);
-// 공개 라우터(board: /posts 읽기·/notices)를 로그인 전용(portfolio)보다 먼저 장착해야
-// GET /api/notices 같은 공개 API가 requireLogin에 가로막히지 않음 (경로 겹침 없음)
+// 공개 라우터(board·indices)를 로그인 전용(portfolio)보다 먼저 장착해야
+// GET /api/notices·/api/indices 같은 공개 API가 requireLogin에 가로막히지 않음
 app.use('/api', boardRouter);
+app.use('/api/indices', indicesRouter);
+app.use('/api/challenges', challengeRouter);
 app.use('/api', portfolioRouter);
 app.use('/api/admin', adminRouter);
 startPriceLoop();

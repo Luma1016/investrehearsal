@@ -12,9 +12,15 @@ db.pragma('foreign_keys = ON');
 const initSql = fs.readFileSync(path.join(__dirname, 'init.sql'), 'utf8');
 db.exec(initSql);
 
-// 마이그레이션: 기존 DB에 tags 컬럼 추가
+// 마이그레이션: 기존 DB에 tags/stock_type 컬럼 추가
 try {
   db.exec("ALTER TABLE stocks ADD COLUMN tags TEXT NOT NULL DEFAULT ''");
+} catch (e) { /* 이미 있으면 무시 */ }
+try {
+  db.exec("ALTER TABLE stocks ADD COLUMN stock_type TEXT NOT NULL DEFAULT 'normal'");
+} catch (e) { /* 이미 있으면 무시 */ }
+try {
+  db.exec('ALTER TABLE notices ADD COLUMN expires_at DATETIME');
 } catch (e) { /* 이미 있으면 무시 */ }
 
 const INIT_CASH = 10000000;
@@ -36,22 +42,22 @@ function seed() {
   const cnt = db.prepare('SELECT COUNT(*) AS c FROM stocks').get().c;
   if (cnt === 0) {
     const stocks = [
-      ['CHKN', '치킨왕국', 45200, '푸드외식'],
-      ['IDOL', '아이돌엔터', 32150, '엔터'],
-      ['BUBBLE', '버블티랩', 12300, '푸드외식'],
-      ['KIMCHI', '김치바이오', 58700, '바이오'],
-      ['HANRIV', '한강배터리', 76400, '2차전지'],
-      ['TTEOK', '떡볶이게임즈', 21800, '게임'],
-      ['SOJU', '소주핀테크', 33500, '핀테크'],
-      ['WEBTOON', '웹툰스튜디오', 41200, '엔터'],
-      ['KSTAR', '케이스타항공', 28900, '여행항공'],
-      ['SEOULFD', '서울푸드랩', 15600, '푸드외식'],
+      ['SAMSUN', '삼선전자', 252000, '반도체', 'bluechip'],
+      ['ANIMIN', '애니마이너스', 2100, '방송', 'normal'],
+      ['DEVBRO', '데브브라더즈', 12300, '게임', 'normal'],
+      ['SHELLT', '쉘트리온', 179700, '바이오', 'bluechip'],
+      ['KRCHIP', '코리아칩', 22000, '배터리', 'normal'],
+      ['SAMHI', '삼선중공업', 18700, '조선', 'normal'],
+      ['HANAFN', '한아금융지주', 33500, '금융', 'normal'],
+      ['GLOBOT', '글로봇', 20350, '로봇', 'normal'],
+      ['KRAVI', '한국항공', 28900, '여행항공', 'normal'],
+      ['KROFC', '한국광통신', 15600, '광통신', 'normal'],
     ];
     const ins = db.prepare(
-      "INSERT INTO stocks (code, name, cur_price, tags, status) VALUES (?,?,?,?,'정상')"
+      "INSERT INTO stocks (code, name, cur_price, tags, stock_type, status) VALUES (?,?,?,?,?,'정상')"
     );
     const tx = db.transaction((rows) => {
-      for (const row of rows) ins.run(row[0], row[1], row[2], row[3]);
+      for (const row of rows) ins.run(row[0], row[1], row[2], row[3], row[4]);
     });
     tx(stocks);
     console.log('[db] seeded 10 stocks');
@@ -69,6 +75,11 @@ function seed() {
   const untagged = db.prepare("SELECT code FROM stocks WHERE tags IS NULL OR tags = ''").all();
   if (untagged.length) {
     const tagMap = {
+      // 현행 기본 목록
+      SAMSUN: '반도체', ANIMIN: '방송', DEVBRO: '게임', SHELLT: '바이오',
+      KRCHIP: '배터리', SAMHI: '조선', HANAFN: '금융', GLOBOT: '로봇',
+      KRAVI: '여행항공', KROFC: '광통신',
+      // 구 목록 (기존 DB 호환)
       CHKN: '푸드외식', IDOL: '엔터', BUBBLE: '푸드외식', KIMCHI: '바이오',
       HANRIV: '2차전지', TTEOK: '게임', SOJU: '핀테크', WEBTOON: '엔터',
       KSTAR: '여행항공', SEOULFD: '푸드외식',
@@ -79,6 +90,20 @@ function seed() {
     });
     txTag(untagged);
     console.log(`[db] backfilled tags for ${untagged.length} stocks`);
+  }
+
+  // 4) 대장주 기본값 (아직 bluechip이 하나도 없을 때만: 기존 관리자 설정 덮어쓰지 않음)
+  const blueCnt = db.prepare("SELECT COUNT(*) AS c FROM stocks WHERE stock_type = 'bluechip'").get().c;
+  if (blueCnt === 0) {
+    const r = db.prepare("UPDATE stocks SET stock_type = 'bluechip' WHERE code IN ('SAMSUN','SHELLT','KIMCHI','HANRIV')").run();
+    console.log(`[db] default bluechips applied: ${r.changes} stocks`);
+  }
+
+  // 5) 기본 지수 (없을 때만)
+  const idxCnt = db.prepare('SELECT COUNT(*) AS c FROM indices').get().c;
+  if (idxCnt === 0) {
+    db.prepare("INSERT INTO indices (name, kind, tag, base_value) VALUES ('Rehearsal 종합','전체','',1000)").run();
+    console.log('[db] seeded index: Rehearsal 종합');
   }
 }
 

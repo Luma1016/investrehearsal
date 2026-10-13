@@ -14,7 +14,7 @@
       <a href="/dashboard.html">◉ MY 홈</a>
       <a href="/board.html">♡ 피드</a>
       <a class="on" href="/stocks.html">▦ 종목 탐색</a>
-      <a href="/dashboard.html">🏆 챌린지</a>
+      <a href="/challenge.html">🏆 챌린지</a>
       <small>MENU</small>
       <a href="/portfolio.html">📊 포트폴리오</a>
       <a href="/history.html">🧾 거래내역</a>
@@ -55,7 +55,7 @@ async function load() {
   rows.innerHTML = list.map(s => {
     const up = (s.day_rate || 0) >= 0, col = up ? UP : DOWN;
     const r = (s.day_rate * 100);
-    return `<tr class="rowlink" data-c="${s.code}"><td><b>${s.name}</b> <span style="color:var(--muted);font-size:12px">${s.code}</span>${s.tags ? `<br><span style="font-size:11px;color:#4F46E5;font-weight:800">#${s.tags}</span>` : ''}<br><span style="font-size:11.5px;font-weight:800;color:${col}">${up ? '+' : ''}${r.toFixed(2)}%</span></td><td style="font-weight:800;color:${col}">${fmt(s.cur_price)}</td><td><canvas data-spark="${s.code}" width="110" height="36"></canvas></td><td>${s.status === '정지' ? '<span class="pill p-up">정지</span>' : '<span class="pill p-gray">정상</span>'}</td><td><button class="follow-btn">상세</button></td></tr>`;
+    return `<tr class="rowlink" data-c="${s.code}"><td><b>${s.name}</b> <span style="color:var(--muted);font-size:12px">${s.code}</span>${s.stock_type === 'bluechip' ? ' <span style="font-size:11px;color:#4F46E5;font-weight:800">[대장주]</span>' : ''}${s.tags ? `<br><span style="font-size:11px;color:#4F46E5;font-weight:800">#${s.tags}</span>` : ''}<br><span style="font-size:11.5px;font-weight:800;color:${col}">${up ? '+' : ''}${r.toFixed(2)}%</span></td><td style="font-weight:800;color:${col}">${fmt(s.cur_price)}</td><td><canvas data-spark="${s.code}" width="110" height="36"></canvas></td><td>${s.halted ? '<span class="pill p-down">CB정지</span>' : s.paused ? '<span class="pill p-gray">일시정지</span>' : s.status === '정지' ? '<span class="pill p-up">정지</span>' : '<span class="pill p-gray">정상</span>'}</td><td><button class="follow-btn">상세</button></td></tr>`;
   }).join('') || '<tr><td colspan=5 style="color:var(--muted)">결과 없음</td></tr>';
   rows.querySelectorAll('tr.rowlink').forEach(tr => tr.onclick = () => location.href = '/stock.html?code=' + tr.dataset.c);
   // 상세페이지 없이 미리보기: 종목별 최근 30포인트 스파크라인 (당일색 연동)
@@ -68,7 +68,10 @@ async function load() {
   }
   try {
     const ns = await api('/api/notices');
-    const flash = ns.filter(n => String(n.title).startsWith('[속보]')).slice(0, 3);
+    const now = Date.now();
+    // expires_at은 UTC ISO로 저장되므로 Z를 붙여 파싱 (로컬 파싱 시 9시간 어긋남)
+    const alive = (n) => !n.expires_at || new Date(String(n.expires_at).replace(' ', 'T') + 'Z').getTime() > now;
+    const flash = ns.filter(n => String(n.title).startsWith('[속보]') && alive(n)).slice(0, 3);
     document.getElementById('flash').innerHTML = flash.map(n => `<div class="post" style="cursor:pointer" data-c="${n.stock_code}"><b>${n.title}</b><br><small>${String(n.created_at).slice(5, 16)}</small></div>`).join('');
     document.querySelectorAll('#flash .post').forEach(el => el.onclick = () => location.href = '/stock.html?code=' + el.dataset.c);
   } catch (e) { /* 무시 */ }

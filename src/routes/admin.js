@@ -7,10 +7,16 @@ router.use(requireAdmin);
 
 const EVENT_TYPES = ['급등', '급락', '정지', '배당'];
 
-function autoNotice({ scope, stock_code, title, body, by_admin }) {
+function autoNotice({ scope, stock_code, title, body, by_admin, expires_at }) {
   db.prepare(
-    'INSERT INTO notices (scope, stock_code, title, body, pinned, by_admin) VALUES (?,?,?,?,0,?)'
-  ).run(scope, stock_code || null, title, body, by_admin);
+    'INSERT INTO notices (scope, stock_code, title, body, pinned, by_admin, expires_at) VALUES (?,?,?,?,0,?,?)'
+  ).run(scope, stock_code || null, title, body, by_admin, expires_at || null);
+}
+
+function plusMinutes(iso, mins) {
+  const d = new Date(String(iso).replace(' ', 'T'));
+  if (isNaN(d)) return null;
+  return new Date(d.getTime() + mins * 60000).toISOString().slice(0, 19).replace('T', ' ');
 }
 
 // GET /api/admin/summary (가입자, 거래수, 블라인드수, 진행중 이벤트)
@@ -112,6 +118,72 @@ router.delete('/notices/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+// GET /api/admin/indices (지수 정의 목록)
+router.get('/indices', (req, res) => {
+  res.json(db.prepare('SELECT * FROM indices ORDER BY id').all());
+});
+
+// POST /api/admin/indices {name, kind?, tag?, base_value?} (지수 추가)
+router.post('/indices', (req, res) => {
+  const { name, kind, tag, base_value } = req.body || {};
+  const n = String(name || '').trim();
+  if (!n || n.length > 30) return res.status(400).json({ error: 'INVALID_NAME' });
+  const k = kind || '전체';
+  if (!['전체', '태그', '대장주'].includes(k)) return res.status(400).json({ error: 'INVALID_KIND' });
+  const t = String(tag || '').trim().slice(0, 100);
+  if (k === '태그' && !t) return res.status(400).json({ error: 'TAG_REQUIRED' });
+  const base = base_value === undefined ? 1000 : Number(base_value);
+  if (!Number.isFinite(base) || base < 1 || base > 1000000) return res.status(400).json({ error: 'INVALID_BASE' });
+  const r = db.prepare('INSERT INTO indices (name, kind, tag, base_value) VALUES (?,?,?,?)')
+    .run(n, k, t, base);
+  res.status(201).json(db.prepare('SELECT * FROM indices WHERE id = ?').get(r.lastInsertRowid));
+});
+
+// PUT /api/admin/indices/:id {name?, kind?, tag?, base_value?} (지수 수정)
+router.put('/indices/:id', (req, res) => {
+  const row = db.prepare('SELECT * FROM indices WHERE id = ?').get(req.params.id);
+  if (!row) return res.status(404).json({ error: 'NOT_FOUND' });
+  const { name, kind, tag, base_value } = req.body || {};
+  const updates = [];
+  const params = [];
+  let nk = row.kind, nt = row.tag;
+  if (name !== undefined) {
+    const n = String(name).trim();
+    if (!n || n.length > 30) return res.status(400).json({ error: 'INVALID_NAME' });
+    updates.push('name = ?');
+    params.push(n);
+  }
+  if (kind !== undefined) {
+    if (!['전체', '태그', '대장주'].includes(kind)) return res.status(400).json({ error: 'INVALID_KIND' });
+    updates.push('kind = ?');
+    params.push(kind);
+    nk = kind;
+  }
+  if (tag !== undefined) {
+    nt = String(tag).trim().slice(0, 100);
+    updates.push('tag = ?');
+    params.push(nt);
+  }
+  if (nk === '태그' && !nt) return res.status(400).json({ error: 'TAG_REQUIRED' });
+  if (base_value !== undefined) {
+    const base = Number(base_value);
+    if (!Number.isFinite(base) || base < 1 || base > 1000000) return res.status(400).json({ error: 'INVALID_BASE' });
+    updates.push('base_value = ?');
+    params.push(base);
+  }
+  if (!updates.length) return res.status(400).json({ error: 'NO_CHANGES' });
+  db.prepare(`UPDATE indices SET ${updates.join(', ')} WHERE id = ?`).run(...params, row.id);
+  res.json(db.prepare('SELECT * FROM indices WHERE id = ?').get(row.id));
+});
+
+// DELETE /api/admin/indices/:id (지수 삭제)
+router.delete('/indices/:id', (req, res) => {
+  const row = db.prepare('SELECT * FROM indices WHERE id = ?').get(req.params.id);
+  if (!row) return res.status(404).json({ error: 'NOT_FOUND' });
+  db.prepare('DELETE FROM indices WHERE id = ?').run(row.id);
+  res.json({ ok: true });
+});
+
 // POST /api/admin/posts/:id/blind | unblind
 router.post('/posts/:id/blind', (req, res) => {
   const p = db.prepare('SELECT * FROM posts WHERE id = ?').get(req.params.id);
@@ -159,6 +231,7 @@ router.post('/events', (req, res) => {
     title: `[공시] ${code} ${type} 이벤트 (${status})`,
     body: reason || `${type} 이벤트가 등록되었습니다.`,
     by_admin: req.user.id,
+    expires_at: end_at ? plusMinutes(end_at, 5) : null, // 종료 5분 뒤 속보 만료
   });
   res.status(201).json(db.prepare('SELECT * FROM stock_events WHERE id = ?').get(r.lastInsertRowid));
 });
@@ -174,7 +247,9 @@ router.post('/events/:id/cancel', (req, res) => {
 // POST /api/admin/news/fire (랜덤 뉴스 즉시 1건 발생, 테스트/운영용)
 router.post('/news/fire', (req, res) => {
   const { fireNews, fireThemeNews } = require('../news');
-  const n = req.body && req.body.theme ? fireThemeNews() : fireNews();
+  const body = req.body || {};
+  const n = body.theme ? fireThemeNews({ tag: body.tag, type: body.type, rate: body.rate, mins: body.mins }) : fireNews();
+  if (n === 'NO_SUCH_TAG') return res.status(404).json({ error: 'NOT_FOUND' });
   if (!n) return res.status(429).json({ error: 'SKIPPED' });
   res.status(201).json(n);
 });
@@ -182,7 +257,7 @@ router.post('/news/fire', (req, res) => {
 // GET /api/admin/stocks (관리자 종목관리 목록: 보유자수·거래량·태그 포함)
 router.get('/stocks', (req, res) => {
   const rows = db.prepare(
-    `SELECT s.code, s.name, s.cur_price, s.status, s.tags, s.updated_at,
+    `SELECT s.code, s.name, s.cur_price, s.status, s.tags, s.stock_type, s.updated_at,
        (SELECT COUNT(*) FROM holdings h WHERE h.stock_code = s.code) AS holders,
        (SELECT COALESCE(SUM(qty),0) FROM transactions t WHERE t.stock_code = s.code) AS total_vol
      FROM stocks s ORDER BY s.code`
@@ -190,9 +265,9 @@ router.get('/stocks', (req, res) => {
   res.json(rows);
 });
 
-// POST /api/admin/stocks {code, name, cur_price, tags?} (신규 종목 추가 + SEED 로그 + 자동공시)
+// POST /api/admin/stocks {code, name, cur_price, tags?, stock_type?} (신규 종목 추가 + SEED 로그 + 자동공시)
 router.post('/stocks', (req, res) => {
-  const { code, name, cur_price, tags } = req.body || {};
+  const { code, name, cur_price, tags, stock_type } = req.body || {};
   const c = String(code || '').trim().toUpperCase();
   const n = String(name || '').trim();
   const price = cur_price === undefined ? 10000 : cur_price;
@@ -200,12 +275,13 @@ router.post('/stocks', (req, res) => {
   if (n.length < 1 || n.length > 30) return res.status(400).json({ error: 'INVALID_NAME' });
   if (!Number.isInteger(price) || price < 100) return res.status(400).json({ error: 'INVALID_PRICE' });
   const tag = tags === undefined ? '일반' : String(tags).trim().slice(0, 100);
+  const stype = stock_type === 'bluechip' ? 'bluechip' : 'normal';
   if (db.prepare('SELECT code FROM stocks WHERE code = ?').get(c)) {
     return res.status(409).json({ error: 'ALREADY_EXISTS' });
   }
   const tx = db.transaction(() => {
-    db.prepare('INSERT INTO stocks (code, name, cur_price, tags, status) VALUES (?,?,?, ?,?)')
-      .run(c, n, price, tag || '일반', '정상');
+    db.prepare('INSERT INTO stocks (code, name, cur_price, tags, stock_type, status) VALUES (?,?,?, ?,?,?)')
+      .run(c, n, price, tag || '일반', stype, '정상');
     db.prepare('INSERT INTO price_logs (stock_code, prev, next, cause, by_admin) VALUES (?,?,?,\'SEED\',?)')
       .run(c, price, price, req.user.id);
   });
@@ -217,7 +293,7 @@ router.post('/stocks', (req, res) => {
     body: `관리자가 신규 종목 ${n}(${c})을 ${price}원에 상장했습니다.`,
     by_admin: req.user.id,
   });
-  res.status(201).json(db.prepare('SELECT code, name, cur_price, status, updated_at FROM stocks WHERE code = ?').get(c));
+  res.status(201).json(db.prepare('SELECT code, name, cur_price, status, tags, stock_type, updated_at FROM stocks WHERE code = ?').get(c));
 });
 
 // PUT /api/admin/stocks/:code {name?, status?, new_code?} (이름·코드 수정/정상·정지 관리 + 자동공시)
@@ -225,13 +301,14 @@ router.post('/stocks', (req, res) => {
 router.put('/stocks/:code', (req, res) => {
   const s = db.prepare('SELECT * FROM stocks WHERE code = ?').get(req.params.code);
   if (!s) return res.status(404).json({ error: 'NOT_FOUND' });
-  const { name, status, new_code, tags } = req.body || {};
+  const { name, status, new_code, tags, stock_type } = req.body || {};
   const updates = [];
   const params = [];
   let renamed = null;
   let statusChanged = null;
   let recoded = null;
   let tagged = null;
+  let typed = null;
   if (new_code !== undefined) {
     const nc = String(new_code).trim().toUpperCase();
     if (!/^[A-Z0-9]{2,10}$/.test(nc)) return res.status(400).json({ error: 'INVALID_CODE' });
@@ -267,14 +344,22 @@ router.put('/stocks/:code', (req, res) => {
       tagged = [(s.tags || '-'), tg || '-'];
     }
   }
+  if (stock_type !== undefined) {
+    if (!['normal', 'bluechip'].includes(stock_type)) return res.status(400).json({ error: 'INVALID_TYPE' });
+    if (stock_type !== (s.stock_type || 'normal')) {
+      updates.push('stock_type = ?');
+      params.push(stock_type);
+      typed = [(s.stock_type || 'normal') === 'bluechip' ? '대장주' : '일반', stock_type === 'bluechip' ? '대장주' : '일반'];
+    }
+  }
   if (!updates.length && !recoded) return res.status(400).json({ error: 'NO_CHANGES' });
   updates.push("updated_at = datetime('now','localtime')");
   const finalCode = recoded ? recoded[1] : s.code;
   const tx = db.transaction(() => {
     if (recoded) {
       // FK 즉시검사 회피: 새 행 INSERT → 자식 이전 → 旧 행 DELETE (셋 중 하나라도 어긋나면 전체 롤백)
-      db.prepare(`INSERT INTO stocks (code, name, cur_price, tags, status, updated_at)
-        SELECT ?, name, cur_price, tags, status, updated_at FROM stocks WHERE code = ?`)
+      db.prepare(`INSERT INTO stocks (code, name, cur_price, tags, stock_type, status, updated_at)
+        SELECT ?, name, cur_price, tags, stock_type, status, updated_at FROM stocks WHERE code = ?`)
         .run(finalCode, s.code);
       for (const t of ['holdings', 'transactions', 'posts', 'notices', 'stock_events', 'price_logs']) {
         db.prepare(`UPDATE ${t} SET stock_code = ? WHERE stock_code = ?`).run(finalCode, s.code);
@@ -291,6 +376,7 @@ router.put('/stocks/:code', (req, res) => {
     renamed ? `이름 ${renamed[0]} → ${renamed[1]}` : null,
     statusChanged ? `상태 ${statusChanged[0]} → ${statusChanged[1]}` : null,
     tagged ? `태그 ${tagged[0]} → ${tagged[1]}` : null,
+    typed ? `유형 ${typed[0]} → ${typed[1]}` : null,
   ].filter(Boolean).join(', ');
   autoNotice({
     scope: '종목',
@@ -299,7 +385,7 @@ router.put('/stocks/:code', (req, res) => {
     body: `관리자가 ${recoded ? recoded[0] : finalCode} 정보를 변경했습니다. (${desc})`,
     by_admin: req.user.id,
   });
-  res.json(db.prepare('SELECT code, name, cur_price, status, tags, updated_at FROM stocks WHERE code = ?').get(finalCode));
+  res.json(db.prepare('SELECT code, name, cur_price, status, tags, stock_type, updated_at FROM stocks WHERE code = ?').get(finalCode));
 });
 
 // POST /api/admin/stocks/:code/price {price, reason?} (직접조작 + price_logs + 자동공시)

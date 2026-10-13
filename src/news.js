@@ -37,39 +37,50 @@ function distinctTags() {
 }
 
 // 테마 뉴스 1건: 같은 태그의 정상 종목 전체에 동일 방향 이벤트 + 종목별 속보 공시
-function fireThemeNews() {
+// opts {tag?, type?(급등/급락), rate?, mins?} — 지정 없으면 랜덤 (자동 루프용)
+function fireThemeNews(opts = {}) {
   const tags = distinctTags();
   if (!tags.length) return fireNews();
   const live = db.prepare("SELECT COUNT(*) AS c FROM stock_events WHERE status IN ('예약','진행중')").get().c;
   if (live >= 3) return null;
-  const tag = tags[randInt(0, tags.length - 1)];
+  const tag = opts.tag || tags[randInt(0, tags.length - 1)];
   const stocks = db.prepare("SELECT code, name FROM stocks WHERE status = '정상' AND tags = ?").all(tag);
-  if (!stocks.length) return fireNews();
-  const t = THEME_TEMPLATES[randInt(0, THEME_TEMPLATES.length - 1)];
-  const title = t.titles[randInt(0, t.titles.length - 1)];
-  const type = t.dir > 0 ? '급등' : '급락';
-  const mag = rand(0.03, 0.1);
-  const rate = t.dir > 0 ? mag : -mag;
-  const mins = randInt(3, 10);
+  if (!stocks.length) return opts.tag ? 'NO_SUCH_TAG' : fireNews();
+  let type = opts.type;
+  if (type !== '급등' && type !== '급락') {
+    const t = THEME_TEMPLATES[randInt(0, THEME_TEMPLATES.length - 1)];
+    type = t.dir > 0 ? '급등' : '급락';
+  }
+  const dir = type === '급등' ? 1 : -1;
+  let rate = Number(opts.rate);
+  if (!Number.isFinite(rate) || rate === 0) rate = dir * rand(0.03, 0.1);
+  else rate = dir * Math.min(0.15, Math.max(0.005, Math.abs(rate))); // 부호는 type 기준, 크기만 반영
+  let mins = Number(opts.mins);
+  if (!Number.isInteger(mins) || mins < 1 || mins > 60) mins = randInt(3, 10);
+  const pool = THEME_TEMPLATES.filter((x) => (x.dir > 0 ? '급등' : '급락') === type).flatMap((x) => x.titles);
+  const title = pool[randInt(0, pool.length - 1)];
   const now = new Date();
   const fmt = (d) => d.toISOString().slice(0, 19).replace('T', ' ');
   const start = fmt(now);
-  const end = fmt(new Date(now.getTime() + mins * 60 * 1000));
   const names = stocks.map((s) => s.name).join(', ');
+  const endDate = new Date(now.getTime() + mins * 60 * 1000);
+  const end = fmt(endDate);
+  const expire = fmt(new Date(endDate.getTime() + 5 * 60 * 1000)); // 이벤트 종료 5분 뒤 속보 만료
   const tx = db.transaction(() => {
     for (const s of stocks) {
       db.prepare(
         'INSERT INTO stock_events (stock_code, type, rate, status, reason, start_at, end_at) VALUES (?,?,?,?,?,?,?)'
       ).run(s.code, type, Number(rate.toFixed(4)), '진행중', `[자동뉴스][${tag}테마] ${title}`, start, end);
-      const arrow = t.dir > 0 ? '📈' : '📉';
+      const arrow = dir > 0 ? '📈' : '📉';
       db.prepare(
-        'INSERT INTO notices (scope, stock_code, title, body, pinned, by_admin) VALUES (?,?,?,?,0,?)'
+        'INSERT INTO notices (scope, stock_code, title, body, pinned, by_admin, expires_at) VALUES (?,?,?,?,0,?,?)'
       ).run(
         '종목',
         s.code,
         `[속보] [${tag}] ${title} ${arrow}`,
-        `자동 테마뉴스: ${tag} 테마(${names}) ${type} 이벤트. 약 ${mins}분간 시세에 ${t.dir > 0 ? '+' : ''}${(rate * 100).toFixed(1)}%/틱 영향.`,
-        null
+        `자동 테마뉴스: ${tag} 테마(${names}) ${type} 이벤트. 약 ${mins}분간 시세에 ${dir > 0 ? '+' : ''}${(rate * 100).toFixed(1)}%/틱 영향.`,
+        null,
+        expire
       );
     }
   });
@@ -98,19 +109,22 @@ function fireNews() {
     const now = new Date();
     const fmt = (d) => d.toISOString().slice(0, 19).replace('T', ' ');
     const start = fmt(now);
-    const end = fmt(new Date(now.getTime() + mins * 60 * 1000));
+    const endDate = new Date(now.getTime() + mins * 60 * 1000);
+    const end = fmt(endDate);
+    const expire = fmt(new Date(endDate.getTime() + 5 * 60 * 1000)); // 이벤트 종료 5분 뒤 속보 만료
     const r = db.prepare(
       'INSERT INTO stock_events (stock_code, type, rate, status, reason, start_at, end_at) VALUES (?,?,?,?,?,?,?)'
     ).run(s.code, t.type, Number(rate.toFixed(4)), '진행중', `[자동뉴스] ${title}`, start, end);
     const arrow = t.dir > 0 ? '📈' : '📉';
     db.prepare(
-      'INSERT INTO notices (scope, stock_code, title, body, pinned, by_admin) VALUES (?,?,?,?,0,?)'
+      'INSERT INTO notices (scope, stock_code, title, body, pinned, by_admin, expires_at) VALUES (?,?,?,?,0,?,?)'
     ).run(
       '종목',
       s.code,
       `[속보] ${s.name} ${title} ${arrow}`,
       `자동 뉴스: ${s.name}(${s.code}) ${t.type} 이벤트 발생. 약 ${mins}분간 시세에 ${t.dir > 0 ? '+' : ''}${(rate * 100).toFixed(1)}%/틱 영향. (투자 판단은 본인 책임, 모의투자임)`,
-      null
+      null,
+      expire
     );
     console.log(`[news] ${s.code} ${t.type} ${rate.toFixed(3)} ${mins}분 :: ${title}`);
     return { id: r.lastInsertRowid, code: s.code, type: t.type, rate, mins, title };
