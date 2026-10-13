@@ -15,13 +15,20 @@
       <a class="on" href="/board.html">♡ 피드</a>
       <a href="/stocks.html">▦ 종목 탐색</a>
       <a href="/challenge.html">🏆 챌린지</a>
+      <a href="/gamble.html">도박장</a>
       <small>MENU</small>
       <a href="/portfolio.html">📊 포트폴리오</a>
       <a href="/history.html">🧾 거래내역</a>
+      <a href="/profile.html">프로필 꾸미기</a>
       <a href="#" id="logout">⚙ 로그아웃</a>
     </div>
   </aside>
   <main class="main">
+    <div class="panel"><h2>엔젤펀드 <span style="font-size:11.5px;color:var(--muted);font-weight:700">파산 구제 기부</span></h2>
+      <p style="font-size:13px;margin-top:8px">잔액 <b id="fdBal">-</b> · 총자산 100만원 미만이면 1일 50만원까지 지원</p>
+      <div class="search"><input id="fdAmt" type="number" placeholder="기부 금액 (100원 이상)"><button class="follow-btn" id="fdDonate">기부하기</button><button class="follow-btn" id="fdClaim">기부 받기</button></div>
+      <p id="fdMsg" style="font-size:12.5px;margin-top:6px"></p>
+    </div>
     <div class="panel"><h2>공지·공시</h2><div id="notices" style="margin-top:8px"></div></div>
     <div class="panel">
       <h2>인기가 많은 글 <span style="font-size:11.5px;color:var(--muted);font-weight:700">좋아요 순</span></h2>
@@ -37,9 +44,33 @@
 </div>
 <script src="/app.js"></script>
 <script>
-function card(p) {
-  return `<div class="post" data-id="${p.id}" style="cursor:pointer"><b>${p.title}</b> ${p.isHolder ? '<span class="pill p-up">보유중</span>' : ''}<br><small>${p.nickname} · ${p.stock_code || '전체'} · 좋아요 ${p.likes} · 댓글 ${p.comment_cnt} · 조회 ${p.views}</small><br>${p.body.slice(0, 80)}</div>`;
+function badgeHtml(p) {
+  let h = '';
+  if (p.badge) h += `<span class="pill p-gray">${p.badge}</span> `;
+  if (p.titles) for (const t of p.titles) h += `<span class="pill p-up">${t}</span> `;
+  return h;
 }
+function card(p) {
+  return `<div class="post" data-id="${p.id}" style="cursor:pointer"><b>${p.title}</b> ${p.isHolder ? '<span class="pill p-up">보유중</span>' : ''} ${badgeHtml(p)}<br><small>${p.nickname} · ${p.stock_code || '전체'} · 좋아요 ${p.likes} · 댓글 ${p.comment_cnt} · 조회 ${p.views}</small><br>${p.body.slice(0, 80)}</div>`;
+}
+function fundMsg(m) { document.getElementById('fdMsg').textContent = m; }
+async function loadFund() {
+  try {
+    const f = await api('/api/fund');
+    document.getElementById('fdBal').textContent = fmt(f.balance);
+    fundMsg(f.claimedToday > 0 ? `오늘 받은 지원: ${fmt(f.claimedToday)}` : (f.broke ? '구제 대상이에요. 기부 받기를 눌러보세요.' : ''));
+  } catch (e) { /* 비로그인 무시 */ }
+}
+document.getElementById('fdDonate').onclick = async () => {
+  const v = Number(document.getElementById('fdAmt').value);
+  if (!v) return fundMsg('금액을 입력해 주세요');
+  try { const r = await api('/api/fund/donate', 'POST', { amount: v }); fundMsg(`기부 감사해요! 펀드 잔액 ${fmt(r.balance)}`); loadFund(); }
+  catch (e) { fundMsg('기부 실패: ' + e.message); }
+};
+document.getElementById('fdClaim').onclick = async () => {
+  try { const r = await api('/api/fund/claim', 'POST'); fundMsg(`${fmt(r.amount)} 지원받았어요. 힘내세요!`); loadFund(); }
+  catch (e) { fundMsg('지원 실패: ' + e.message); }
+};
 function bind(scope) { scope.querySelectorAll('.post').forEach(el => el.onclick = () => location.href = '/post.html?id=' + el.dataset.id); }
 let all = [];
 async function load() {
@@ -60,6 +91,7 @@ function shuffle() {
 document.getElementById('shuffle').onclick = shuffle;
 document.getElementById('logout').onclick = async (e) => { e.preventDefault(); await api('/api/auth/logout', 'POST'); location.href = '/login.html'; };
 load();
+loadFund();
 </script>
 </body>
 </html>

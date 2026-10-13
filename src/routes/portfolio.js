@@ -1,13 +1,13 @@
 const express = require('express');
 const db = require('../db');
 const { requireLogin } = require('../middleware');
+const { kToday } = require('../ktime');
 
 const router = express.Router();
 router.use(requireLogin);
 
 function todayStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return kToday(); // KST 기준 일자
 }
 
 function buildPortfolio(userId) {

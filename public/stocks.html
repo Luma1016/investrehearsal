@@ -15,9 +15,11 @@
       <a href="/board.html">♡ 피드</a>
       <a class="on" href="/stocks.html">▦ 종목 탐색</a>
       <a href="/challenge.html">🏆 챌린지</a>
+      <a href="/gamble.html">도박장</a>
       <small>MENU</small>
       <a href="/portfolio.html">📊 포트폴리오</a>
       <a href="/history.html">🧾 거래내역</a>
+      <a href="/profile.html">프로필 꾸미기</a>
       <a href="#" id="logout">⚙ 로그아웃</a>
     </div>
   </aside>
@@ -84,8 +86,8 @@ async function load() {
   try {
     const ns = await api('/api/notices');
     const now = Date.now();
-    // expires_at은 UTC ISO로 저장되므로 Z를 붙여 파싱 (로컬 파싱 시 9시간 어긋남)
-    const alive = (n) => !n.expires_at || new Date(String(n.expires_at).replace(' ', 'T') + 'Z').getTime() > now;
+    // expires_at은 KST 문자열로 저장 → 로컬 파싱 (KST 브라우저 기준)
+    const alive = (n) => !n.expires_at || new Date(String(n.expires_at).replace(' ', 'T')).getTime() > now;
     const flash = ns.filter(n => String(n.title).startsWith('[속보]') && alive(n)).slice(0, 3);
     document.getElementById('flash').innerHTML = flash.map(n => `<div class="post" style="cursor:pointer" data-c="${n.stock_code}"><b>${n.title}</b><br><small>${String(n.created_at).slice(5, 16)}</small></div>`).join('');
     document.querySelectorAll('#flash .post').forEach(el => el.onclick = () => location.href = '/stock.html?code=' + el.dataset.c);

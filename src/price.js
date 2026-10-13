@@ -1,6 +1,40 @@
 const db = require('./db');
 const { fillBuy } = require('./routes/trade');
-const { isHalted, isPaused, dayOpen, recordKitHit, consumedLevel, KIT_STEP, KIT_HALT_MIN, utcNow } = require('./circuit');
+const { isHalted, isPaused, dayOpen, recordKitHit, consumedLevel, KIT_STEP, KIT_HALT_MIN } = require('./circuit');
+const { kNow, kToday } = require('./ktime');
+
+// 일일 배당: 하루 1회, 배당 설정된 정상 종목 보유자에게 주당 지급
+// 인플레 방지: 주당 min(설정액, 현재가의 2%) 상한 · UNIQUE(user,종목,날짜)로 중복 지급 불가
+let lastDivDate = null;
+function payDividends(today) {
+  const stocks = db.prepare("SELECT code, name, cur_price, dividend FROM stocks WHERE status = '정상' AND dividend > 0").all();
+  for (const s of stocks) {
+    const per = Math.min(s.dividend, Math.floor(s.cur_price * 0.02));
+    if (per <= 0) continue;
+    const holders = db.prepare('SELECT user_id, qty FROM holdings WHERE stock_code = ? AND qty >= 1').all(s.code);
+    if (!holders.length) continue;
+    let paid = 0;
+    const tx = db.transaction(() => {
+      for (const h of holders) {
+        const amount = h.qty * per;
+        const r = db.prepare(
+          'INSERT OR IGNORE INTO dividend_logs (user_id, stock_code, qty, per_share, amount, div_date) VALUES (?,?,?,?,?,?)'
+        ).run(h.user_id, s.code, h.qty, per, amount, today);
+        if (r.changes > 0) {
+          db.prepare('UPDATE accounts SET cash = cash + ? WHERE user_id = ?').run(amount, h.user_id);
+          paid++;
+        }
+      }
+    });
+    tx();
+    if (paid > 0) {
+      db.prepare(
+        'INSERT INTO notices (scope, stock_code, title, body, pinned, by_admin) VALUES (?,?,?,?,0,?)'
+      ).run('종목', s.code, `[배당] ${s.name} 주당 ${per.toLocaleString()}원 지급`, `${today} 배당: ${s.name}(${s.code}) 보유 ${paid}명에게 주당 ${per.toLocaleString()}원 지급 (현재가 대비 상한 2% 적용).`, null);
+    }
+  }
+  lastDivDate = today;
+}
 
 // 거래량 연동형 가상시세 (실제 시장 유사):
 //   imbalance = (buyVol - sellVol) / totalVol  (-1 ~ +1, 주문흐름 불균형)
@@ -57,8 +91,15 @@ function calcTradeImpact(buyVol, sellVol) {
 }
 
 function tick(intervalMs = 10000) {
-  const now = new Date();
-  const nowIso = now.toISOString().slice(0, 19).replace('T', ' ');
+  const nowIso = kNow(); // KST
+  const today = kToday();
+  if (lastDivDate !== today) {
+    try {
+      payDividends(today);
+    } catch (e) {
+      console.error('[div] payout failed:', e.message);
+    }
+  }
   const SCALE = intervalMs / 60000; // 분당 틱 수 보정 (10초 → 1/6)
   const stocks = db.prepare("SELECT code, name, cur_price, stock_type FROM stocks WHERE status != '정지'").all();
   const upd = db.prepare("UPDATE stocks SET cur_price = ?, updated_at = datetime('now','localtime') WHERE code = ?");
@@ -83,7 +124,10 @@ function tick(intervalMs = 10000) {
       const nrPerMin = isBlue ? 0.002 : NOISE_RANGE;
       const nr = nrPerMin * Math.sqrt(SCALE);
       const noise = Math.random() * (nr * 2) - nr;
-      let move = ti + noise + eventRate * SCALE;
+      // 대장주는 이벤트 충격 0.3배 + 이벤트분 분당 ±3% 캡 (우량주답게 눌림)
+      let evPart = eventRate * SCALE * (isBlue ? 0.3 : 1);
+      if (isBlue) evPart = Math.max(-0.03 * SCALE, Math.min(0.03 * SCALE, evPart));
+      let move = ti + noise + evPart;
       if (move > TICK_LIMIT) move = TICK_LIMIT;
       if (move < -TICK_LIMIT) move = -TICK_LIMIT;
       const next = Math.max(MIN_PRICE, Math.round(s.cur_price * (1 + move)));
@@ -115,9 +159,9 @@ function checkKit(s, next) {
   if (upLv >= 1 && upLv > consumedLevel(s.code, '상한')) { side = '상한'; level = upLv; }
   else if (downLv >= 1 && downLv > consumedLevel(s.code, '하한')) { side = '하한'; level = downLv; }
   if (!side) return;
-  const haltUntil = new Date(Date.now() + KIT_HALT_MIN * 60000).toISOString().slice(0, 19).replace('T', ' ');
+  const haltUntil = kNow(new Date(Date.now() + KIT_HALT_MIN * 60000));
   recordKitHit(s.code, side, level, haltUntil);
-  const expire = new Date(Date.now() + (KIT_HALT_MIN + 5) * 60000).toISOString().slice(0, 19).replace('T', ' ');
+  const expire = kNow(new Date(Date.now() + (KIT_HALT_MIN + 5) * 60000));
   db.prepare(
     'INSERT INTO notices (scope, stock_code, title, body, pinned, by_admin, expires_at) VALUES (?,?,?,?,0,?,?)'
   ).run(

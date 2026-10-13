@@ -15,9 +15,11 @@
       <a href="/board.html">♡ 피드</a>
       <a class="on" href="/stocks.html">▦ 종목 탐색</a>
       <a href="/challenge.html">🏆 챌린지</a>
+      <a href="/gamble.html">도박장</a>
       <small>MENU</small>
       <a href="/portfolio.html">📊 포트폴리오</a>
       <a href="/history.html">🧾 거래내역</a>
+      <a href="/profile.html">프로필 꾸미기</a>
       <a href="#" id="logout">⚙ 로그아웃</a>
     </div>
   </aside>
@@ -30,6 +32,7 @@
       <p class="big-num" id="price" style="margin-top:10px">-</p>
       <p id="chgLine" style="font-size:14px;font-weight:800;margin-top:4px">-</p>
       <p id="cbLine" style="font-size:12.5px;font-weight:800;margin-top:4px"></p>
+      <p id="divLine" style="font-size:12.5px;color:var(--muted);margin-top:4px"></p>
       <div class="ticker" id="ticker"></div>
       <p style="font-size:11.5px;color:var(--muted);margin-top:8px">전일종가·52주선은 기록 범위 내 추정치, 시가총액은 가상 발행 100만주 가정</p>
       <p style="font-size:12.5px;color:var(--muted);margin-top:4px" id="hold">보유 확인 중...</p>
@@ -244,7 +247,7 @@ function renderHead() {
   if (cb && (cb.up_kits > 0 || cb.down_kits > 0 || cb.halted || cb.paused)) {
     let extra = '';
     if (cb.paused && cb.resume_at) {
-      const rt = new Date(String(cb.resume_at).replace(' ', 'T') + 'Z');
+      const rt = new Date(String(cb.resume_at).replace(' ', 'T')); // KST 저장값
       const p = (x) => String(x).padStart(2, '0');
       extra = ` · 일시정지 중 (${p(rt.getHours())}:${p(rt.getMinutes())} 재개)`;
     }
@@ -255,6 +258,7 @@ function renderHead() {
   } else {
     cbel.textContent = '';
   }
+  document.getElementById('divLine').textContent = cur.dividend > 0 ? `배당주 · 매일 주당 ${Number(cur.dividend).toLocaleString()}원 지급 (상한 현재가 2%)` : '';
   let hi = -Infinity, lo = Infinity;
   for (const c of candles) { hi = Math.max(hi, c.h); lo = Math.min(lo, c.l); }
   const allP = allPts.map(p => p.price);
@@ -331,7 +335,7 @@ function updTotal() {
 }
 async function renderPosts() {
   const ps = await api('/api/posts?stock=' + encodeURIComponent(code));
-  document.getElementById('posts').innerHTML = ps.slice(0, 5).map(p => `<div class="post" data-id="${p.id}" style="cursor:pointer"><b>${p.title}</b> ${p.isHolder ? '<span class="pill p-up">보유중</span>' : ''}<br><small>${p.nickname} · 좋아요 ${p.likes} · 댓글 ${p.comment_cnt}</small></div>`).join('') || '<p style="font-size:13px;color:var(--muted)">첫 글을 남겨보세요.</p>';
+  document.getElementById('posts').innerHTML = ps.slice(0, 5).map(p => `<div class="post" data-id="${p.id}" style="cursor:pointer"><b>${p.title}</b> ${p.isHolder ? '<span class="pill p-up">보유중</span>' : ''}${p.badge ? ` <span class="pill p-gray">${p.badge}</span>` : ''}${(p.titles || []).map(t => ` <span class="pill p-up">${t}</span>`).join('')}<br><small>${p.nickname} · 좋아요 ${p.likes} · 댓글 ${p.comment_cnt}</small></div>`).join('') || '<p style="font-size:13px;color:var(--muted)">첫 글을 남겨보세요.</p>';
   document.querySelectorAll('#posts .post').forEach(el => el.onclick = () => location.href = '/post.html?id=' + el.dataset.id);
 }
 async function renderReserves() {

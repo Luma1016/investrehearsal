@@ -13,6 +13,13 @@ services:
         value: 20.19.0
       - key: SESSION_SECRET
         generateValue: true
+      # Supabase 백업 (A안): 아래 2개만 넣으면 DB 영속화. 버킷은 자동 생성.
+      # - key: SUPABASE_URL
+      #   sync: false
+      # - key: SUPABASE_SERVICE_KEY
+      #   sync: false
+      # - key: BACKUP_INTERVAL_MIN
+      #   value: 5
       # 영속 디스크(유료 플랜) 사용 시 주석 해제 + DB_PATH를 마운트 경로로 지정
       # - key: DB_PATH
       #   value: /var/data/db.sqlite

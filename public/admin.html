@@ -16,9 +16,11 @@
       <a href="/board.html">♡ 피드</a>
       <a href="/stocks.html">▦ 종목 탐색</a>
       <a href="/challenge.html">🏆 챌린지</a>
+      <a href="/gamble.html">도박장</a>
       <small>MENU</small>
       <a href="/portfolio.html">📊 포트폴리오</a>
       <a href="/history.html">🧾 거래내역</a>
+      <a href="/profile.html">프로필 꾸미기</a>
       <a class="on" href="/admin.html">🛠 관리자</a>
       <a href="#" id="logout">⚙ 로그아웃</a>
     </div>
@@ -38,6 +40,8 @@
         <button data-t="t4">종목관리</button>
         <button data-t="t5">지수관리</button>
         <button data-t="t6">실거래량</button>
+        <button data-t="t7">뱃지</button>
+        <button data-t="t8">펀드·도박</button>
       </div>
       <div id="t1" style="margin-top:12px">
         <h2>이벤트 생성 (즉시/예약)</h2>
@@ -73,9 +77,9 @@
       </div>
       <div id="t4" style="margin-top:12px;display:none">
         <h2>종목 통합 관리 (추가·이름·주가·코드·상태·태그 한 번에)</h2>
-        <div class="search"><input id="sCode" placeholder="코드 (영문대문자·숫자 2~10자)" style="max-width:140px"><input id="sName" placeholder="종목 이름" style="max-width:130px"><input id="sPrice" type="number" placeholder="상장가 (100원 이상)" style="max-width:120px"><input id="sTags" placeholder="태그 (예: 2차전지)" style="max-width:110px"><select id="sType" style="max-width:100px"><option value="normal">일반</option><option value="bluechip">대장주</option></select><button class="follow-btn" id="sAdd">추가</button></div>
-        <table><tr><th>코드</th><th>이름</th><th>현재가 → 새 주가</th><th>상태</th><th>태그</th><th>유형</th><th>보유자·거래량</th><th></th></tr><tbody id="sRows"></tbody></table>
-        <p style="font-size:11.5px;color:var(--muted);margin-top:6px">행별 저장 버튼 하나로 이름·코드·상태·주가·태그·유형을 한 번에 반영 (주가 변경은 조작로그+공시 자동 기록, 코드 변경 시 보유·거래·게시글 함께 이전, 같은 태그끼리 테마 뉴스 동시 발생, 대장주는 변동 작게·거래량 크게)</p>
+        <div class="search"><input id="sCode" placeholder="코드 (영문대문자·숫자 2~10자)" style="max-width:140px"><input id="sName" placeholder="종목 이름" style="max-width:130px"><input id="sPrice" type="number" placeholder="상장가 (100원 이상)" style="max-width:120px"><input id="sTags" placeholder="태그 (예: 2차전지)" style="max-width:110px"><select id="sType" style="max-width:100px"><option value="normal">일반</option><option value="bluechip">대장주</option></select><input id="sDiv" type="number" placeholder="배당/주 (0=없음)" style="max-width:110px"><button class="follow-btn" id="sAdd">추가</button></div>
+        <table><tr><th>코드</th><th>이름</th><th>현재가 → 새 주가</th><th>상태</th><th>태그</th><th>유형</th><th>배당/주</th><th>보유자·거래량</th><th></th></tr><tbody id="sRows"></tbody></table>
+        <p style="font-size:11.5px;color:var(--muted);margin-top:6px">행별 저장 버튼 하나로 이름·코드·상태·주가·태그·유형·배당을 한 번에 반영 (주가 변경은 조작로그+공시 자동 기록, 코드 변경 시 보유·거래·게시글 함께 이전, 같은 태그끼리 테마 뉴스 동시 발생, 대장주는 변동 작게·거래량 크게)</p>
       </div>
       <div id="t5" style="margin-top:12px;display:none">
         <h2>시장 지수 추가 (대시보드 상단 위젯)</h2>
@@ -89,6 +93,29 @@
         <div style="max-height:220px;overflow:auto"><table><tr><th>종목</th><th>매수</th><th>매도</th><th>건수</th><th>거래대금</th></tr><tbody id="vStock"></tbody></table></div>
         <h3 style="font-size:13px;margin-top:12px">사용자별</h3>
         <div style="max-height:220px;overflow:auto"><table><tr><th>사용자</th><th>매수</th><th>매도</th><th>건수</th><th>거래대금</th></tr><tbody id="vUser"></tbody></table></div>
+      </div>
+      <div id="t7" style="margin-top:12px;display:none">
+        <h2>뱃지 추가 (상점용 · 0원도 가능)</h2>
+        <div class="search"><input id="bgName" placeholder="이름 (20자 이내)" style="max-width:140px"><input id="bgDesc" placeholder="설명" style="max-width:180px"><input id="bgPrice" type="number" placeholder="가격 (원)" style="max-width:110px"><button class="follow-btn" id="bgAdd">추가</button></div>
+        <table><tr><th>ID</th><th>이름</th><th>설명</th><th>가격</th><th>보유자</th><th></th></tr><tbody id="bgRows"></tbody></table>
+      </div>
+      <div id="t8" style="margin-top:12px;display:none">
+        <h2>엔젤펀드 잔액 <span id="fdBal" style="font-size:13px"></span></h2>
+        <div class="search"><input id="fdAmt" type="number" placeholder="± 금액"><button class="follow-btn" id="fdBtn">잔액 조정</button></div>
+        <h3 style="font-size:13px;margin-top:12px">최근 기부</h3>
+        <div style="max-height:160px;overflow:auto"><table><tr><th>사용자</th><th>금액</th><th>일시</th></tr><tbody id="fdDon"></tbody></table></div>
+        <h3 style="font-size:13px;margin-top:12px">최근 지원</h3>
+        <div style="max-height:160px;overflow:auto"><table><tr><th>사용자</th><th>금액</th><th>일시</th></tr><tbody id="fdClaim"></tbody></table></div>
+        <h2 style="margin-top:16px">도박 게임 추가 (배당×확률&lt;1 필수 = 하우스 우위)</h2>
+        <div class="search"><input id="gCode" placeholder="코드(영문소문자)" style="max-width:120px"><input id="gName" placeholder="이름" style="max-width:110px"><input id="gMult" placeholder="배율" style="max-width:80px"><input id="gProb" placeholder="확률" style="max-width:80px"><button class="follow-btn" id="gAdd">추가</button></div>
+        <table><tr><th>코드</th><th>이름</th><th>배율</th><th>확률</th><th>환수율</th><th>사용</th><th></th></tr><tbody id="gRows"></tbody></table>
+        <h2 style="margin-top:16px">크래시 가중치·기대값·상한</h2>
+        <div class="search"><input id="cPup" placeholder="상승확률 (예: 0.48)" style="max-width:120px"><input id="cRup" placeholder="상승폭 (예: 1.0)" style="max-width:110px"><input id="cRdown" placeholder="하락폭 (예: 1.1)" style="max-width:110px"><input id="cMaxN" type="number" placeholder="최대 단계" style="max-width:90px"><button class="follow-btn" id="cSave">저장</button></div>
+        <p id="cInfo" style="font-size:12px;color:var(--muted);margin-top:6px"></p>
+        <h2 style="margin-top:16px">도박장 전체 정지</h2>
+        <button class="btn" id="haltBtn">불러오는 중...</button>
+        <h2 style="margin-top:16px">하우스 수지</h2>
+        <p id="gStat" style="font-size:13px"></p>
       </div>
     </div>
   </main>
@@ -106,7 +133,7 @@
 document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
   document.querySelectorAll('.tabs button').forEach(x => x.classList.remove('on'));
   b.classList.add('on');
-  ['t1', 't2', 't3', 't4', 't5', 't6'].forEach(t => document.getElementById(t).style.display = t === b.dataset.t ? '' : 'none');
+  ['t1', 't2', 't3', 't4', 't5', 't6', 't7', 't8'].forEach(t => document.getElementById(t).style.display = t === b.dataset.t ? '' : 'none');
 });
 async function loadAll() {
   const s = await api('/api/admin/summary');
@@ -125,7 +152,7 @@ async function loadAll() {
   document.querySelectorAll('[data-unstop]').forEach(b => b.onclick = async () => { await api(`/api/admin/users/${b.dataset.unstop}/stop`, 'PUT', { status: '정상' }); loadAll(); });
   const st = await api('/api/admin/stocks');
   document.getElementById('tagList').innerHTML = [...new Set(st.map(s => s.tags).filter(Boolean))].map(t => `<option value="${t}">`).join('');
-  document.getElementById('sRows').innerHTML = st.map(s => `<tr><td><input data-code="${s.code}" value="${s.code}" style="max-width:90px"></td><td><input data-name="${s.code}" value="${s.name}" style="max-width:130px"></td><td>${Number(s.cur_price).toLocaleString()}원 → <input data-price="${s.code}" type="number" placeholder="새 주가" style="max-width:100px"></td><td><select data-status="${s.code}" data-orig="${s.status}"><option value="정상"${s.status === '정상' ? ' selected' : ''}>정상</option><option value="정지"${s.status === '정지' ? ' selected' : ''}>정지</option></select></td><td><input data-tags="${s.code}" value="${s.tags || ''}" style="max-width:90px"></td><td><select data-stype="${s.code}" data-orig="${s.stock_type || 'normal'}"><option value="normal"${(s.stock_type || 'normal') === 'normal' ? ' selected' : ''}>일반</option><option value="bluechip"${s.stock_type === 'bluechip' ? ' selected' : ''}>대장주</option></select></td><td style="color:var(--muted);font-size:12px">${s.holders}명 · ${Number(s.total_vol).toLocaleString()}주</td><td><button class="follow-btn" data-save="${s.code}">저장</button></td></tr>`).join('');
+  document.getElementById('sRows').innerHTML = st.map(s => `<tr><td><input data-code="${s.code}" value="${s.code}" style="max-width:90px"></td><td><input data-name="${s.code}" value="${s.name}" style="max-width:130px"></td><td>${Number(s.cur_price).toLocaleString()}원 → <input data-price="${s.code}" type="number" placeholder="새 주가" style="max-width:100px"></td><td><select data-status="${s.code}" data-orig="${s.status}"><option value="정상"${s.status === '정상' ? ' selected' : ''}>정상</option><option value="정지"${s.status === '정지' ? ' selected' : ''}>정지</option></select></td><td><input data-tags="${s.code}" value="${s.tags || ''}" style="max-width:90px"></td><td><select data-stype="${s.code}" data-orig="${s.stock_type || 'normal'}"><option value="normal"${(s.stock_type || 'normal') === 'normal' ? ' selected' : ''}>일반</option><option value="bluechip"${s.stock_type === 'bluechip' ? ' selected' : ''}>대장주</option></select></td><td><input data-div="${s.code}" type="number" value="${s.dividend || 0}" style="max-width:80px"></td><td style="color:var(--muted);font-size:12px">${s.holders}명 · ${Number(s.total_vol).toLocaleString()}주</td><td><button class="follow-btn" data-save="${s.code}">저장</button></td></tr>`).join('');
   document.querySelectorAll('[data-save]').forEach(b => b.onclick = async () => {
     const oldC = b.dataset.save;
     const codeEl = document.querySelector(`[data-code="${oldC}"]`);
@@ -134,6 +161,7 @@ async function loadAll() {
     const pxEl = document.querySelector(`[data-price="${oldC}"]`);
     const tagEl = document.querySelector(`[data-tags="${oldC}"]`);
     const typeEl = document.querySelector(`[data-stype="${oldC}"]`);
+    const divEl = document.querySelector(`[data-div="${oldC}"]`);
     const newC = codeEl.value.trim().toUpperCase();
     try {
       const payload = {};
@@ -142,8 +170,9 @@ async function loadAll() {
       if (stEl.value !== stEl.dataset.orig) payload.status = stEl.value;
       if (tagEl.value !== tagEl.defaultValue) payload.tags = tagEl.value;
       if (typeEl.value !== typeEl.dataset.orig) payload.stock_type = typeEl.value;
+      if (divEl.value !== divEl.defaultValue) payload.dividend = Number(divEl.value);
       const target = newC && newC !== oldC ? newC : oldC;
-      const hasMeta = payload.new_code || payload.name || payload.status || payload.tags !== undefined || payload.stock_type;
+      const hasMeta = payload.new_code || payload.name || payload.status || payload.tags !== undefined || payload.stock_type || payload.dividend !== undefined;
       if (hasMeta) await api(`/api/admin/stocks/${encodeURIComponent(oldC)}`, 'PUT', payload);
       if (pxEl.value && Number(pxEl.value) > 0) await api(`/api/admin/stocks/${encodeURIComponent(target)}/price`, 'POST', { price: Number(pxEl.value), reason: '관리자 통합화면 조정' });
       if (!hasMeta && !(pxEl.value && Number(pxEl.value) > 0)) return toast('바뀐 내용이 없어요');
@@ -175,6 +204,49 @@ async function loadAll() {
   const vs = await api('/api/admin/volumes');
   document.getElementById('vStock').innerHTML = vs.byStock.map(r => `<tr><td><b>${r.name || r.code}</b> <span style="color:var(--muted);font-size:12px">${r.code}</span></td><td>${Number(r.buy_vol).toLocaleString()}주</td><td>${Number(r.sell_vol).toLocaleString()}주</td><td>${r.trades}건</td><td>${(Number(r.turnover) / 1e8).toFixed(2)}억원</td></tr>`).join('') || '<tr><td colspan=5 style="color:var(--muted)">실체결 없음</td></tr>';
   document.getElementById('vUser').innerHTML = vs.byUser.map(r => `<tr><td>${r.nickname} <span style="color:var(--muted);font-size:12px">#${r.id}</span></td><td>${Number(r.buy_vol).toLocaleString()}주</td><td>${Number(r.sell_vol).toLocaleString()}주</td><td>${r.trades}건</td><td>${(Number(r.turnover) / 1e8).toFixed(2)}억원</td></tr>`).join('') || '<tr><td colspan=5 style="color:var(--muted)">실체결 없음</td></tr>';
+  const bgs = await api('/api/admin/badges');
+  document.getElementById('bgRows').innerHTML = bgs.map(b => `<tr><td>${b.id}</td><td><input data-bgn="${b.id}" value="${String(b.name).replace(/"/g, '&quot;')}" style="max-width:110px"></td><td><input data-bgd="${b.id}" value="${String(b.descrip || '').replace(/"/g, '&quot;')}" style="max-width:150px"></td><td><input data-bgp="${b.id}" type="number" value="${b.price}" style="max-width:90px"></td><td>${b.owners}명</td><td><button class="follow-btn" data-bgsave="${b.id}">저장</button> <button class="follow-btn" data-bgdel="${b.id}">삭제</button></td></tr>`).join('') || '<tr><td colspan=6 style="color:var(--muted)">없음</td></tr>';
+  document.querySelectorAll('[data-bgsave]').forEach(b => b.onclick = async () => {
+    const id = b.dataset.bgsave;
+    try { await api(`/api/admin/badges/${id}`, 'PUT', { name: document.querySelector(`[data-bgn="${id}"]`).value, descrip: document.querySelector(`[data-bgd="${id}"]`).value, price: Number(document.querySelector(`[data-bgp="${id}"]`).value) }); toast('뱃지 수정됨'); loadAll(); }
+    catch (e) { toast('수정 실패: ' + e.message); }
+  });
+  document.querySelectorAll('[data-bgdel]').forEach(b => b.onclick = async () => {
+    if (!confirm('이 뱃지를 삭제할까요? 보유·장착도 함께 해제됩니다.')) return;
+    await api(`/api/admin/badges/${b.dataset.bgdel}`, 'DELETE'); toast('삭제됨'); loadAll();
+  });
+  const fd = await api('/api/admin/fund');
+  document.getElementById('fdBal').textContent = `· ${Number(fd.balance).toLocaleString()}원`;
+  document.getElementById('fdDon').innerHTML = fd.donations.slice(0, 20).map(d => `<tr><td>${d.nickname || '-'}</td><td>${Number(d.amount).toLocaleString()}원</td><td>${String(d.created_at).slice(0, 16)}</td></tr>`).join('') || '<tr><td colspan=3 style="color:var(--muted)">없음</td></tr>';
+  document.getElementById('fdClaim').innerHTML = fd.claims.slice(0, 20).map(d => `<tr><td>${d.nickname || '-'}</td><td>${Number(d.amount).toLocaleString()}원</td><td>${String(d.created_at).slice(0, 16)}</td></tr>`).join('') || '<tr><td colspan=3 style="color:var(--muted)">없음</td></tr>';
+  const gs = await api('/api/admin/games');
+  document.getElementById('gRows').innerHTML = gs.map(g => `<tr><td>${g.code}</td><td><input data-gn="${g.code}" value="${String(g.name).replace(/"/g, '&quot;')}" style="max-width:90px"></td><td><input data-gm="${g.code}" value="${g.payout_mult}" style="max-width:60px"></td><td><input data-gp="${g.code}" value="${g.win_prob}" style="max-width:60px"></td><td>${Math.round(g.payout_mult * g.win_prob * 1000) / 10}%</td><td><input data-ge="${g.code}" type="checkbox"${g.enabled ? ' checked' : ''}></td><td><button class="follow-btn" data-gsave="${g.code}">저장</button> <button class="follow-btn" data-gdel="${g.code}">삭제</button></td></tr>`).join('');
+  document.querySelectorAll('[data-gsave]').forEach(b => b.onclick = async () => {
+    const c = b.dataset.gsave;
+    try { await api(`/api/admin/games/${c}`, 'PUT', { name: document.querySelector(`[data-gn="${c}"]`).value, payout_mult: Number(document.querySelector(`[data-gm="${c}"]`).value), win_prob: Number(document.querySelector(`[data-gp="${c}"]`).value), enabled: document.querySelector(`[data-ge="${c}"]`).checked }); toast('게임 수정됨'); loadAll(); }
+    catch (e) { toast('수정 실패: ' + e.message); }
+  });
+  document.querySelectorAll('[data-gdel]').forEach(b => b.onclick = async () => {
+    if (!confirm('이 게임을 삭제할까요? 기록은 유지됩니다.')) return;
+    await api(`/api/admin/games/${b.dataset.gdel}`, 'DELETE'); toast('삭제됨'); loadAll();
+  });
+  try {
+    const st = await api('/api/admin/gamble/stats');
+    document.getElementById('gStat').textContent = `총 ${st.total.plays}판 · 베팅 ${Number(st.total.bet).toLocaleString()}원 · 지급 ${Number(st.total.payout).toLocaleString()}원 · 하우스 엣지 ${st.house_edge}%`;
+  } catch (e) { document.getElementById('gStat').textContent = ''; }
+  try {
+    const gs2 = await api('/api/admin/games');
+    const crash = gs2.find(g => g.code === 'crash');
+    if (crash) {
+      document.getElementById('cPup').value = crash.p_up;
+      document.getElementById('cRup').value = crash.rng_up;
+      document.getElementById('cRdown').value = crash.rng_down;
+      document.getElementById('cMaxN').value = crash.max_n;
+      document.getElementById('cInfo').textContent = `현재: 상승확률 ${crash.p_up} · 상승폭 ${crash.rng_up} · 하락폭 ${crash.rng_down} · 최대 ${crash.max_n}단계 (상승기대 < 하락기대 = 하우스 우위 강제)`;
+    }
+    const h = await api('/api/admin/gamble/halt');
+    paintHalt(h.halted);
+  } catch (e) { /* 무시 */ }
 }
 document.getElementById('eBtn').onclick = async () => {
   try { await api('/api/admin/events', 'POST', { code: document.getElementById('eCode').value.trim(), type: document.getElementById('eType').value.trim(), rate: Number(document.getElementById('eRate').value), reason: document.getElementById('eReason').value }); loadAll(); }
@@ -210,11 +282,46 @@ document.getElementById('xAdd').onclick = async () => {
   try { await api('/api/admin/indices', 'POST', { name: document.getElementById('xName').value.trim(), kind: document.getElementById('xKind').value, tag: document.getElementById('xTag').value.trim(), base_value: document.getElementById('xBase').value ? base : undefined }); toast('지수 추가됨'); loadAll(); }
   catch (e) { toast('추가 실패: ' + e.message); }
 };
+document.getElementById('bgAdd').onclick = async () => {
+  try { await api('/api/admin/badges', 'POST', { name: document.getElementById('bgName').value.trim(), descrip: document.getElementById('bgDesc').value, price: Number(document.getElementById('bgPrice').value) || 0 }); toast('뱃지 추가됨'); loadAll(); }
+  catch (e) { toast('추가 실패: ' + e.message); }
+};
+document.getElementById('fdBtn').onclick = async () => {
+  try { const r = await api('/api/admin/fund/adjust', 'POST', { amount: Number(document.getElementById('fdAmt').value) }); toast(`펀드 잔액 ${Number(r.balance).toLocaleString()}원`); loadAll(); }
+  catch (e) { toast('조정 실패: ' + e.message); }
+};
+function paintHalt(halted) {
+  const b = document.getElementById('haltBtn');
+  b.textContent = halted ? '도박장 정지 중 — 눌러서 재개' : '도박장 운영 중 — 눌러서 전체 정지';
+  b.dataset.halted = halted ? '1' : '';
+}
+document.getElementById('cSave').onclick = async () => {
+  try {
+    await api('/api/admin/games/crash', 'PUT', {
+      p_up: Number(document.getElementById('cPup').value),
+      rng_up: Number(document.getElementById('cRup').value),
+      rng_down: Number(document.getElementById('cRdown').value),
+      max_n: Number(document.getElementById('cMaxN').value),
+    });
+    toast('크래시 설정 저장됨'); loadAll();
+  } catch (e) { toast('저장 실패: ' + e.message); }
+};
+document.getElementById('haltBtn').onclick = async () => {
+  const halted = document.getElementById('haltBtn').dataset.halted === '1';
+  if (halted || confirm('도박장 전체를 정지할까요? 진행 중인 판은 유지되고 새 베팅이 막힙니다.')) {
+    const r = await api('/api/admin/gamble/halt', 'POST', { halt: !halted });
+    paintHalt(r.halted); toast(r.halted ? '도박장 정지됨' : '도박장 재개됨');
+  }
+};
+document.getElementById('gAdd').onclick = async () => {
+  try { await api('/api/admin/games', 'POST', { code: document.getElementById('gCode').value.trim(), name: document.getElementById('gName').value.trim(), payout_mult: Number(document.getElementById('gMult').value), win_prob: Number(document.getElementById('gProb').value) }); toast('게임 추가됨'); loadAll(); }
+  catch (e) { toast('추가 실패: ' + e.message); }
+};
 document.getElementById('bBlind').onclick = async () => { await api(`/api/admin/posts/${document.getElementById('bId').value}/blind`, 'POST'); toast('블라인드 처리'); loadAll(); };
 document.getElementById('bUnblind').onclick = async () => { await api(`/api/admin/posts/${document.getElementById('bId').value}/unblind`, 'POST'); toast('해제'); loadAll(); };
 document.getElementById('bDel').onclick = async () => { if (!confirm('삭제할까요?')) return; await api(`/api/admin/posts/${document.getElementById('bId').value}`, 'DELETE'); toast('삭제'); loadAll(); };
 document.getElementById('sAdd').onclick = async () => {
-  try { await api('/api/admin/stocks', 'POST', { code: document.getElementById('sCode').value.trim(), name: document.getElementById('sName').value.trim(), cur_price: Number(document.getElementById('sPrice').value), tags: document.getElementById('sTags').value.trim(), stock_type: document.getElementById('sType').value }); toast('종목 추가됨 · 공시 발행'); loadAll(); }
+  try { await api('/api/admin/stocks', 'POST', { code: document.getElementById('sCode').value.trim(), name: document.getElementById('sName').value.trim(), cur_price: Number(document.getElementById('sPrice').value), tags: document.getElementById('sTags').value.trim(), stock_type: document.getElementById('sType').value, dividend: Number(document.getElementById('sDiv').value) || 0 }); toast('종목 추가됨 · 공시 발행'); loadAll(); }
   catch (e) { toast('추가 실패: ' + e.message); }
 };
 document.getElementById('logReset').onclick = async () => {

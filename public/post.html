@@ -15,9 +15,11 @@
       <a class="on" href="/board.html">♡ 피드</a>
       <a href="/stocks.html">▦ 종목 탐색</a>
       <a href="/challenge.html">🏆 챌린지</a>
+      <a href="/gamble.html">도박장</a>
       <small>MENU</small>
       <a href="/portfolio.html">📊 포트폴리오</a>
       <a href="/history.html">🧾 거래내역</a>
+      <a href="/profile.html">프로필 꾸미기</a>
       <a href="#" id="logout">⚙ 로그아웃</a>
     </div>
   </aside>
@@ -35,7 +37,7 @@ async function load() {
   const p = await api('/api/posts/' + id);
   document.getElementById('title').textContent = p.title;
   document.getElementById('meta').textContent = `${p.nickname} · ${p.stock_code || '전체'} · ${p.created_at} · 조회 ${p.views} · 좋아요 ${p.likes}`;
-  document.getElementById('badge').innerHTML = p.isHolder ? '<span class="pill p-green">보유중</span>' : '';
+  document.getElementById('badge').innerHTML = (p.isHolder ? '<span class="pill p-green">보유중</span> ' : '') + (p.badge ? `<span class="pill p-gray">${p.badge}</span> ` : '') + (p.titles || []).map(t => `<span class="pill p-up">${t}</span>`).join(' ');
   document.getElementById('body').textContent = p.body;
   document.getElementById('like').textContent = `♡ 좋아요 ${p.likes}`;
   if (p.mine) { document.getElementById('edit').style.display = ''; document.getElementById('del').style.display = ''; }

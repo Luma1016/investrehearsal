@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { dayOpen, circuitState } = require('../circuit');
+const { kNow } = require('../ktime');
 
 const router = express.Router();
 
@@ -73,7 +74,7 @@ router.get('/:code/history', (req, res) => {
   ).all(s.code, limit).reverse();
   let points;
   if (!logs.length) {
-    points = [{ price: s.cur_price, at: new Date().toISOString() }];
+    points = [{ price: s.cur_price, at: kNow().replace(' ', 'T') + '+09:00' }];
   } else {
     points = [{ price: logs[0].prev, at: logs[0].created_at }, ...logs.map((l) => ({ price: l.next, at: l.created_at }))];
   }
@@ -95,7 +96,7 @@ router.get('/:code/trades', (req, res) => {
 
 // GET /api/stocks/:code 상세 (현재가 + 보유뱃지용 + 태그 + 당일등락)
 router.get('/:code', (req, res) => {
-  const s = db.prepare('SELECT code, name, cur_price, status, tags, stock_type, updated_at FROM stocks WHERE code = ?')
+  const s = db.prepare('SELECT code, name, cur_price, status, tags, stock_type, dividend, updated_at FROM stocks WHERE code = ?')
     .get(req.params.code);
   if (!s) return res.status(404).json({ error: 'NOT_FOUND' });
   let isHolder = false;

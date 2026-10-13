@@ -1,4 +1,5 @@
 const db = require('./db');
+const { kNow, kToday } = require('./ktime');
 
 // 서킷브레이커 상수: 15%마다 킷 → 5분 일시정지, 당일 ±60% 도달 시 당일 거래정지
 const KIT_STEP = 0.15;
@@ -6,11 +7,10 @@ const KIT_HALT_MIN = 5;
 const DAY_LIMIT = 0.6;
 
 function utcNow() {
-  return new Date().toISOString().slice(0, 19).replace('T', ' ');
+  return kNow(); // KST (기존명 유지, 내용은 KST)
 }
 function localDate() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return kToday(); // KST (기존명 유지, 내용은 KST)
 }
 
 // 서킷브레이커 기준가: 당일 시가 (오늘 첫 시세로그 prev → 없으면 전체 첫 로그 → 없으면 현재가)

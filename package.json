@@ -11,6 +11,7 @@
     "dev": "node --watch src/server.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.3",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^12.11.1",
     "express": "^4.19.2",

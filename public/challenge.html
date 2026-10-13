@@ -15,9 +15,11 @@
       <a href="/board.html">♡ 피드</a>
       <a href="/stocks.html">▦ 종목 탐색</a>
       <a class="on" href="/challenge.html">🏆 챌린지</a>
+      <a href="/gamble.html">도박장</a>
       <small>MENU</small>
       <a href="/portfolio.html">📊 포트폴리오</a>
       <a href="/history.html">🧾 거래내역</a>
+      <a href="/profile.html">프로필 꾸미기</a>
       <a href="#" id="logout">⚙ 로그아웃</a>
     </div>
   </aside>
@@ -25,6 +27,7 @@
     <div class="panel">
       <h2>주간 수익률 챌린지 <span style="font-size:11.5px;color:var(--muted);font-weight:700">최근 7일 · 자동 참가</span></h2>
       <p id="myLine" style="font-size:13px;font-weight:800;margin-top:8px"></p>
+      <p id="donorLine" style="font-size:13px;margin-top:4px"></p>
       <table><tr><th>순위</th><th>닉네임</th><th>수익률</th><th>손익</th></tr><tbody id="rows"></tbody></table>
       <p style="font-size:11.5px;color:var(--muted);margin-top:8px">포트폴리오를 조회할 때마다 하루 1회 자산이 기록돼요 · 기록 2일 이상부터 순위 집계 · 수수료 0원</p>
     </div>
@@ -37,6 +40,7 @@
   try {
     const r = await api('/api/challenges/weekly');
     document.getElementById('myLine').textContent = r.myRank ? `내 순위: ${r.myRank}위 / ${r.participants}명` : `참가자 ${r.participants}명 · 기록이 쌓이면 내 순위 표시`;
+    document.getElementById('donorLine').innerHTML = r.donor ? `이번 주 <span class="pill p-up">기부왕</span> <b>${r.donor.nickname}</b> · 누적 ${Number(r.donor.total).toLocaleString()}원` : '';
     document.getElementById('rows').innerHTML = r.board.map(x => {
       const col = x.return_pct >= 0 ? '#F04452' : '#3182F6';
       const rowHl = x.mine ? ' style="background:#EEF2FF"' : '';

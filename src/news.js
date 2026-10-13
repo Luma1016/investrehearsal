@@ -1,4 +1,5 @@
 const db = require('./db');
+const { kNow } = require('./ktime');
 
 // 랜덤 뉴스 시스템 (기획서 5.2 event_rate + 5.6 자동공시 규칙 준수)
 // - 5~60분 랜덤 간격으로 종목 1개에 급등/급락 이벤트 부여 (3~10분 지속)
@@ -60,12 +61,11 @@ function fireThemeNews(opts = {}) {
   const pool = THEME_TEMPLATES.filter((x) => (x.dir > 0 ? '급등' : '급락') === type).flatMap((x) => x.titles);
   const title = pool[randInt(0, pool.length - 1)];
   const now = new Date();
-  const fmt = (d) => d.toISOString().slice(0, 19).replace('T', ' ');
-  const start = fmt(now);
+  const start = kNow(now);
   const names = stocks.map((s) => s.name).join(', ');
   const endDate = new Date(now.getTime() + mins * 60 * 1000);
-  const end = fmt(endDate);
-  const expire = fmt(new Date(endDate.getTime() + 5 * 60 * 1000)); // 이벤트 종료 5분 뒤 속보 만료
+  const end = kNow(endDate);
+  const expire = kNow(new Date(endDate.getTime() + 5 * 60 * 1000)); // 이벤트 종료 5분 뒤 속보 만료
   const tx = db.transaction(() => {
     for (const s of stocks) {
       db.prepare(
@@ -107,11 +107,10 @@ function fireNews() {
     const rate = t.dir > 0 ? mag : -mag;
     const mins = randInt(3, 10);
     const now = new Date();
-    const fmt = (d) => d.toISOString().slice(0, 19).replace('T', ' ');
-    const start = fmt(now);
+    const start = kNow(now);
     const endDate = new Date(now.getTime() + mins * 60 * 1000);
-    const end = fmt(endDate);
-    const expire = fmt(new Date(endDate.getTime() + 5 * 60 * 1000)); // 이벤트 종료 5분 뒤 속보 만료
+    const end = kNow(endDate);
+    const expire = kNow(new Date(endDate.getTime() + 5 * 60 * 1000)); // 이벤트 종료 5분 뒤 속보 만료
     const r = db.prepare(
       'INSERT INTO stock_events (stock_code, type, rate, status, reason, start_at, end_at) VALUES (?,?,?,?,?,?,?)'
     ).run(s.code, t.type, Number(rate.toFixed(4)), '진행중', `[자동뉴스] ${title}`, start, end);

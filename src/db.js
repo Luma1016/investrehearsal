@@ -22,6 +22,30 @@ try {
 try {
   db.exec('ALTER TABLE notices ADD COLUMN expires_at DATETIME');
 } catch (e) { /* 이미 있으면 무시 */ }
+try {
+  db.exec('ALTER TABLE stocks ADD COLUMN dividend INTEGER NOT NULL DEFAULT 0');
+} catch (e) { /* 이미 있으면 무시 */ }
+try {
+  db.exec('ALTER TABLE users ADD COLUMN display_badge INTEGER REFERENCES badges(id)');
+} catch (e) { /* 이미 있으면 무시 */ }
+for (const col of ['p_up REAL', 'rng_up REAL', 'rng_down REAL', 'max_n INTEGER']) {
+  try {
+    db.exec(`ALTER TABLE games ADD COLUMN ${col}`);
+  } catch (e) { /* 이미 있으면 무시 */ }
+}
+// 크래시 행이 옛날 시드(파라미터 없음)로 존재하면 보정 (신규 DB는 아래 시드가 담당하므로 기존 게임 있을 때만)
+try {
+  const gc = db.prepare('SELECT COUNT(*) AS c FROM games').get().c;
+  if (gc > 0) {
+    const crash = db.prepare("SELECT p_up FROM games WHERE code = 'crash'").get();
+    if (crash && crash.p_up == null) {
+      db.prepare("UPDATE games SET p_up = 0.48, rng_up = 1.0, rng_down = 1.1, max_n = 10 WHERE code = 'crash'").run();
+    }
+    if (!crash) {
+      db.prepare("INSERT INTO games (code, name, payout_mult, win_prob, min_bet, enabled, descrip, p_up, rng_up, rng_down, max_n) VALUES ('crash','크래시',0,0.5,100,1,'목표 단계 도달 배율 게임 (승률 약 45%)',0.48,1.0,1.1,10)").run();
+    }
+  }
+} catch (e) { /* 무시 */ }
 
 const INIT_CASH = 10000000;
 
@@ -104,6 +128,27 @@ function seed() {
   if (idxCnt === 0) {
     db.prepare("INSERT INTO indices (name, kind, tag, base_value) VALUES ('Rehearsal 종합','전체','',1000)").run();
     console.log('[db] seeded index: Rehearsal 종합');
+  }
+
+  // 6) 엔젤펀드 pool 1행
+  db.prepare('INSERT OR IGNORE INTO angel_fund (id, balance) VALUES (1, 0)').run();
+
+  // 7) 도박 게임 시드 (환수율<100% 하우스 우위: 동전 90%, 주사위 83%)
+  const gameCnt = db.prepare('SELECT COUNT(*) AS c FROM games').get().c;
+  if (gameCnt === 0) {
+    db.prepare("INSERT INTO games (code, name, payout_mult, win_prob, min_bet, enabled, descrip) VALUES ('coin','동전 홀짝',1.8,0.5,100,1,'홀/짝 맞추면 1.8배 (환수율 90%)')").run();
+    db.prepare("INSERT INTO games (code, name, payout_mult, win_prob, min_bet, enabled, descrip) VALUES ('dice','주사위',5.0,0.1667,100,1,'숫자 맞추면 5배 (환수율 83%)')").run();
+    db.prepare("INSERT INTO games (code, name, payout_mult, win_prob, min_bet, enabled, descrip, p_up, rng_up, rng_down, max_n) VALUES ('crash','크래시',0,0.5,100,1,'목표 단계 도달 배율 게임 (승률 약 45%)',0.48,1.0,1.1,10)").run();
+    console.log('[db] seeded games: coin, dice, crash');
+  }
+
+  // 8) 구매 뱃지 시드 (돈 소비처)
+  const badgeCnt = db.prepare('SELECT COUNT(*) AS c FROM badges').get().c;
+  if (badgeCnt === 0) {
+    db.prepare('INSERT INTO badges (name, descrip, price) VALUES (?,?,?)').run('황금개미', '반짝이는 개미의 증표', 1000000);
+    db.prepare('INSERT INTO badges (name, descrip, price) VALUES (?,?,?)').run('다이아손', '전설의 손', 5000000);
+    db.prepare('INSERT INTO badges (name, descrip, price) VALUES (?,?,?)').run('존버왕', '버티면 이긴다', 2000000);
+    console.log('[db] seeded badges');
   }
 }
 

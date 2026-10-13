@@ -29,8 +29,8 @@ function displayNickname(u) {
   return u.status === '탈퇴' ? '탈퇴회원' : u.nickname;
 }
 
-function withMeta(row, viewerId) {
-  const u = row.user_id ? db.prepare('SELECT nickname, status FROM users WHERE id = ?').get(row.user_id) : null;
+function withMeta(row, viewerId, titles) {
+  const u = row.user_id ? db.prepare('SELECT nickname, status, display_badge FROM users WHERE id = ?').get(row.user_id) : null;
   let isHolder = false;
   if (row.stock_code && row.user_id) {
     const h = db.prepare('SELECT 1 AS ok FROM holdings WHERE user_id = ? AND stock_code = ?')
@@ -38,12 +38,25 @@ function withMeta(row, viewerId) {
     isHolder = !!h;
   }
   const cc = db.prepare("SELECT COUNT(*) AS c FROM comments WHERE post_id = ? AND status = '정상'").get(row.id).c;
+  let badge = null;
+  if (u && u.display_badge) {
+    const b = db.prepare('SELECT name FROM badges WHERE id = ?').get(u.display_badge);
+    if (b) badge = b.name;
+  }
+  const kitles = [];
+  if (titles && row.user_id) {
+    for (const [k, v] of Object.entries(titles)) {
+      if (v.user_id === row.user_id) kitles.push(k);
+    }
+  }
   return {
     ...row,
     nickname: displayNickname(u),
     isHolder,
     comment_cnt: cc,
     mine: viewerId ? row.user_id === viewerId : false,
+    badge,
+    titles: kitles,
   };
 }
 
@@ -75,7 +88,11 @@ router.get('/posts', (req, res) => {
   const rows = db.prepare(
     `SELECT p.* FROM posts p WHERE ${conds.join(' AND ')} ORDER BY ${order} LIMIT 100`
   ).all(...params);
-  res.json(rows.map((r) => withMeta(r, viewerId)));
+  let titles = {};
+  try {
+    titles = require('./badges').calcTitles();
+  } catch (e) { /* 무시 */ }
+  res.json(rows.map((r) => withMeta(r, viewerId, titles)));
 });
 
 // POST /api/posts {stock_code,title,body}
@@ -106,7 +123,11 @@ router.get('/posts/:id', (req, res) => {
   }
   db.prepare('UPDATE posts SET views = views + 1 WHERE id = ?').run(row.id);
   const fresh = db.prepare('SELECT * FROM posts WHERE id = ?').get(row.id);
-  res.json(withMeta(fresh, viewerId));
+  let titles = {};
+  try {
+    titles = require('./badges').calcTitles();
+  } catch (e) { /* 무시 */ }
+  res.json(withMeta(fresh, viewerId, titles));
 });
 
 // PUT /api/posts/:id (본인만)

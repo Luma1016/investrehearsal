@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
   nickname TEXT UNIQUE NOT NULL,
   role TEXT NOT NULL DEFAULT 'USER' CHECK (role IN ('USER','ADMIN')),
   status TEXT NOT NULL DEFAULT '정상',
+  display_badge INTEGER REFERENCES badges(id),
   created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
 );
 
@@ -24,6 +25,7 @@ CREATE TABLE IF NOT EXISTS stocks (
   status TEXT NOT NULL DEFAULT '정상' CHECK (status IN ('정상','정지')),
   tags TEXT NOT NULL DEFAULT '',
   stock_type TEXT NOT NULL DEFAULT 'normal' CHECK (stock_type IN ('normal','bluechip')),
+  dividend INTEGER NOT NULL DEFAULT 0,
   updated_at DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
 );
 
@@ -138,4 +140,83 @@ CREATE TABLE IF NOT EXISTS cb_hits (
   halt_until DATETIME NOT NULL,
   created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime')),
   PRIMARY KEY (stock_code, date, side, level)
+);
+
+CREATE TABLE IF NOT EXISTS dividend_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  stock_code TEXT NOT NULL,
+  qty INTEGER NOT NULL CHECK (qty >= 1),
+  per_share INTEGER NOT NULL,
+  amount INTEGER NOT NULL,
+  div_date TEXT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime')),
+  UNIQUE(user_id, stock_code, div_date)
+);
+
+-- 엔젤펀드(기부): pool 1행, 기부/수령 로그
+CREATE TABLE IF NOT EXISTS angel_fund (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  balance INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS donations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  amount INTEGER NOT NULL CHECK (amount >= 1),
+  created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS fund_claims (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  amount INTEGER NOT NULL CHECK (amount >= 1),
+  claim_date TEXT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+-- 뱃지 상점 + 보유 (장착은 users.display_badge)
+CREATE TABLE IF NOT EXISTS badges (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  descrip TEXT NOT NULL DEFAULT '',
+  price INTEGER NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS user_badges (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  badge_id INTEGER NOT NULL REFERENCES badges(id) ON DELETE CASCADE,
+  created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime')),
+  PRIMARY KEY (user_id, badge_id)
+);
+
+-- 도박 게임 설정 + 로그 (환수율<100%로 설계 = 돈 먹는 하우스)
+CREATE TABLE IF NOT EXISTS games (
+  code TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  payout_mult REAL NOT NULL,
+  win_prob REAL NOT NULL CHECK (win_prob > 0 AND win_prob < 1),
+  min_bet INTEGER NOT NULL DEFAULT 100,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  descrip TEXT NOT NULL DEFAULT '',
+  p_up REAL,
+  rng_up REAL,
+  rng_down REAL,
+  max_n INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS gambles (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  game_code TEXT NOT NULL,
+  bet INTEGER NOT NULL,
+  payout INTEGER NOT NULL DEFAULT 0,
+  win INTEGER NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
 );

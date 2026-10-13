@@ -12,7 +12,7 @@ function weeklyBoard() {
   for (const u of users) {
     const snaps = db.prepare(
       `SELECT date, total FROM asset_history
-        WHERE user_id = ? AND date >= date('now','localtime','-6 days')
+        WHERE user_id = ? AND date >= date('now','+9 hours','-6 days')
         ORDER BY date`
     ).all(u.id);
     if (snaps.length < 2) continue;
@@ -33,7 +33,7 @@ function weeklyBoard() {
   return rows.map((r, i) => ({ rank: i + 1, ...r }));
 }
 
-// GET /api/challenges/weekly (공개: 닉네임·수익률만, 금액은 본인만)
+// GET /api/challenges/weekly (공개: 닉네임·수익률만, 금액은 본인만 + 기부왕)
 router.get('/weekly', (req, res) => {
   const viewerId = req.session && req.session.userId ? req.session.userId : null;
   const board = weeklyBoard().map((r) => {
@@ -42,7 +42,11 @@ router.get('/weekly', (req, res) => {
     return mine ? { ...pub, mine: true, start_total, end_total } : { ...pub, mine: false };
   });
   const myRank = viewerId ? board.findIndex((r) => r.mine) + 1 || null : null;
-  res.json({ board, myRank, participants: board.length });
+  let donor = null;
+  try {
+    donor = require('./badges').calcTitles()['기부왕'] || null;
+  } catch (e) { /* 무시 */ }
+  res.json({ board, myRank, participants: board.length, donor });
 });
 
 module.exports = { router, weeklyBoard };

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>프로필 꾸미기 - 모의스톡 MY</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="logo">모의스톡 <span>MY</span></div>
+    <div class="nav">
+      <a href="/dashboard.html">◉ MY 홈</a>
+      <a href="/board.html">♡ 피드</a>
+      <a href="/stocks.html">▦ 종목 탐색</a>
+      <a href="/challenge.html">🏆 챌린지</a>
+      <a href="/gamble.html">도박장</a>
+      <small>MENU</small>
+      <a href="/portfolio.html">📊 포트폴리오</a>
+      <a href="/history.html">🧾 거래내역</a>
+      <a class="on" href="/profile.html">프로필 꾸미기</a>
+      <a href="#" id="logout">⚙ 로그아웃</a>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="panel">
+      <h2>내 칭호 <span style="font-size:11.5px;color:var(--muted);font-weight:700">실적 1위 자동 부여</span></h2>
+      <div id="myTitles" style="margin-top:8px"></div>
+    </div>
+    <div class="panel">
+      <h2>장착 중</h2>
+      <div id="equipped" style="margin-top:8px"></div>
+      <button class="follow-btn" id="offBtn" style="margin-top:8px">장착 해제</button>
+    </div>
+    <div class="panel">
+      <h2>뱃지 상점 <span style="font-size:11.5px;color:var(--muted);font-weight:700">예수금으로 구매</span></h2>
+      <div id="shop" style="margin-top:8px"></div>
+    </div>
+  </main>
+  <div class="rail"><div class="mini"><h3>안내</h3><p style="font-size:12.5px;color:var(--muted)">장착한 뱃지와 1위 칭호가 글 옆에 표시돼요</p></div></div>
+</div>
+<div class="ttoast" id="ttoast"></div>
+<script src="/app.js"></script>
+<script>
+function ttoast(m) { const t = document.getElementById('ttoast'); t.textContent = m; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2200); }
+async function load() {
+  const b = await api('/api/badges');
+  const nameOf = (id) => (b.shop.find(x => x.id === id) || {}).name;
+  document.getElementById('myTitles').innerHTML = (b.myTitles || []).map(t => `<span class="pill p-up">${t}</span>`).join(' ') || '<p style="font-size:13px;color:var(--muted)">아직 1위가 없어요. 기부·도박·주식·배당에서 1위를 노려보세요.</p>';
+  document.getElementById('equipped').innerHTML = b.equipped ? `<span class="pill p-gray">${nameOf(b.equipped) || '뱃지'}</span>` : '<p style="font-size:13px;color:var(--muted)">장착 없음</p>';
+  document.getElementById('shop').innerHTML = b.shop.map(x => {
+    const own = (b.owned || []).includes(x.id);
+    const eq = b.equipped === x.id;
+    return `<div class="post"><b>${x.name}</b> <small>${x.descrip || ''}</small><br><small>${x.price ? fmt(x.price) : '무료'}</small> ${own ? (eq ? '<span class="pill p-gray">장착중</span>' : `<button class="follow-btn" data-eq="${x.id}">장착</button>`) : `<button class="follow-btn" data-buy="${x.id}">구매</button>`}</div>`;
+  }).join('');
+  document.querySelectorAll('[data-buy]').forEach(el => el.onclick = async () => {
+    try { await api(`/api/badges/${el.dataset.buy}/buy`, 'POST'); ttoast('구매 완료!'); load(); }
+    catch (e) { ttoast('구매 실패: ' + e.message); }
+  });
+  document.querySelectorAll('[data-eq]').forEach(el => el.onclick = async () => {
+    await api('/api/badges/equip', 'POST', { badge_id: Number(el.dataset.eq) }); load();
+  });
+}
+document.getElementById('offBtn').onclick = async () => { await api('/api/badges/equip', 'POST', { badge_id: null }); load(); };
+document.getElementById('logout').onclick = async (e) => { e.preventDefault(); await api('/api/auth/logout', 'POST'); location.href = '/login.html'; };
+load();
+</script>
+</body>
+</html>
