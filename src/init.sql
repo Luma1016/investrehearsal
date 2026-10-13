@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS stocks (
   name TEXT NOT NULL,
   cur_price INTEGER NOT NULL,
   status TEXT NOT NULL DEFAULT '정상' CHECK (status IN ('정상','정지')),
+  tags TEXT NOT NULL DEFAULT '',
   updated_at DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
 );
 

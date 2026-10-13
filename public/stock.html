@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>종목 상세 - 모의스톡 MY</title>
 <link rel="stylesheet" href="/style.css">
+<style>
+#price { transition: color .3s; }
+#price.tick { animation: pricepop .45s; display: inline-block; }
+@keyframes pricepop { 0% { transform: scale(1); } 30% { transform: scale(1.06); } 100% { transform: scale(1); } }
+#chartWrap { position: relative; }
+#chartTip { position: absolute; display: none; background: #191F28; color: #fff; border-radius: 12px; padding: 10px 12px; font-size: 11.5px; line-height: 1.6; pointer-events: none; z-index: 5; white-space: nowrap; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+#chartTip b { font-size: 12px; }
+.tagpill { display: inline-block; font-size: 11px; font-weight: 800; background: #EEF2FF; color: #4F46E5; border-radius: 999px; padding: 3px 10px; margin-left: 6px; vertical-align: middle; }
+</style>
 </head>
 <body>
 <div class="shell">
@@ -35,9 +44,20 @@
       <p style="font-size:12.5px;color:var(--muted)" id="cashLine">주식 살 수 있는 돈 확인 중...</p>
     </div>
     <div class="panel">
-      <div style="display:flex;align-items:center"><h2>캔들차트 + 거래량</h2><div class="period" id="bucket" style="margin:0 0 0 auto"><button data-b="60">1분</button><button class="on" data-b="300">5분</button><button data-b="86400">1일</button></div></div>
-      <canvas id="candle" width="700" height="260"></canvas>
+      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px"><h2>캔들차트 + 거래량</h2><div class="period" id="bucket" style="margin:0 0 0 auto"><button data-b="60">1분</button><button class="on" data-b="300">5분</button><button data-b="86400">1일</button><button data-b="604800">1주</button><button data-b="2592000">1달</button></div></div>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <button class="follow-btn" id="prevBtn">◀ 이전</button>
+        <button class="follow-btn" id="nextBtn">다음 ▶</button>
+        <button class="follow-btn" id="liveBtn">● 라이브</button>
+        <button class="follow-btn" id="moreBtn">과거 더 보기</button>
+        <span id="liveBadge" style="font-size:11.5px;color:var(--muted);font-weight:700;align-self:center"></span>
+      </div>
+      <div id="chartWrap" style="position:relative"><canvas id="candle" width="700" height="260" style="cursor:grab;touch-action:none"></canvas><div id="chartTip"></div></div>
       <p style="font-size:12px;color:var(--muted)" id="range"></p>
+    </div>
+    <div class="panel">
+      <h2>종목 뉴스 <span style="font-size:11.5px;color:var(--muted);font-weight:700">자동 속보 · 공시</span></h2>
+      <div id="news" style="margin-top:8px"></div>
     </div>
     <div class="panel">
       <h2>호가창 <span style="font-size:11.5px;color:var(--muted);font-weight:700">가상호가(표시용) · 클릭하면 주문에 반영 · 실제 체결은 시장가</span></h2>
@@ -77,6 +97,9 @@ const code = new URLSearchParams(location.search).get('code');
 if (!code) location.href = '/stocks.html';
 let cur = null, myCash = 0, myQty = 0, myAvg = null, allPts = [], trades = [], candles = [];
 let bucketSec = 300, sheetSide = 'buy', sheetMode = 'qty';
+let hoverIdx = null; // 십자선/툴팁용: viewSlice() 기준 인덱스
+// 보기 창: 시간 간격 무시하고 봉을 인덱스 기준 연속 표시. end=0이면 최신(라이브) 추적.
+let viewCount = 60, viewEnd = 0, hasMore = false, oldestAt = null, loadingMore = false;
 // 실시간 캔들 기준가: 마지막 서버 확정가(anchor) + 화면 표시용 라이브가(live)
 let anchorPrice = null, livePrice = null;
 const MICRO_RANGE = 0.0015, MEAN_REVERT = 0.3, MICRO_CAP = 0.005;
@@ -86,6 +109,7 @@ function ttoast(m) { const t = document.getElementById('ttoast'); t.textContent 
 function ts(s) { const d = new Date(String(s).replace(' ', 'T')); return isNaN(d) ? Date.now() : d.getTime(); }
 function fmtT(t, daily) { const d = new Date(t); const p = (n) => String(n).padStart(2, '0'); return daily ? `${d.getMonth() + 1}/${d.getDate()}` : `${p(d.getHours())}:${p(d.getMinutes())}`; }
 function buildCandles() {
+  // 시간에 구애받지 않고 봉을 서로 바로 옆에: 버킷 경계 기준 + 빈 버킷은 전 종가로 메움(flat) + 1포인트 버킷은 전 종가를 시가로
   const map = new Map();
   for (const p of allPts) {
     const t = ts(p.at); if (isNaN(t)) continue;
@@ -93,25 +117,53 @@ function buildCandles() {
     if (!map.has(b)) map.set(b, []);
     map.get(b).push({ price: p.price, t });
   }
-  candles = [...map.keys()].sort((a, b) => a - b).slice(-60).map(k => {
-    const arr = map.get(k).sort((a, b) => a.t - b.t);
-    const ps = arr.map(x => x.price);
-    let bv = 0, sv = 0;
-    for (const tr of trades) {
-      const t = ts(tr.created_at);
-      if (Math.floor(t / 1000 / bucketSec) * bucketSec !== k) continue;
-      if (tr.side === 'BUY') bv += tr.qty; else sv += tr.qty;
+  const keys = [...map.keys()].sort((a, b) => a - b);
+  const out = [];
+  let prevClose = null;
+  if (keys.length) {
+    for (let b = keys[0]; b <= keys[keys.length - 1]; b += bucketSec) {
+      const arr = map.get(b);
+      if (!arr) {
+        if (prevClose != null) out.push({ t: b * 1000, o: prevClose, h: prevClose, l: prevClose, c: prevClose, v: 0, flat: true });
+        continue;
+      }
+      arr.sort((x, y) => x.t - y.t);
+      const ps = arr.map(x => x.price);
+      let o, c, h, l;
+      if (ps.length === 1) {
+        o = prevClose != null ? prevClose : ps[0];
+        c = ps[0]; h = Math.max(o, c); l = Math.min(o, c);
+      } else {
+        o = ps[0]; c = ps[ps.length - 1]; h = Math.max(...ps); l = Math.min(...ps);
+      }
+      let bv = 0, sv = 0;
+      for (const tr of trades) {
+        const t = ts(tr.created_at);
+        if (Math.floor(t / 1000 / bucketSec) * bucketSec !== b) continue;
+        if (tr.side === 'BUY') bv += tr.qty; else sv += tr.qty;
+      }
+      out.push({ t: b * 1000, o, h, l, c, v: bv + sv });
+      prevClose = c;
     }
-    return { t: k * 1000, o: ps[0], h: Math.max(...ps), l: Math.min(...ps), c: ps[ps.length - 1], v: bv + sv };
-  });
+  }
+  candles = out;
+  // 보기 창 클램프
+  if (viewEnd < 0) viewEnd = 0;
+  if (viewEnd > Math.max(0, candles.length - 1)) viewEnd = Math.max(0, candles.length - 1);
+}
+function viewSlice() {
+  const end = candles.length - viewEnd;
+  const start = Math.max(0, end - viewCount);
+  return candles.slice(start, end);
 }
 function draw() {
   const cv = document.getElementById('candle'), ctx = cv.getContext('2d');
   ctx.clearRect(0, 0, 700, 260);
-  if (candles.length < 1) { ctx.fillStyle = '#B0B8C1'; ctx.font = '13px sans-serif'; ctx.fillText('시세 누적 중 (1분마다 기록)', 10, 100); return; }
+  const view = viewSlice();
+  if (view.length < 1) { ctx.fillStyle = '#B0B8C1'; ctx.font = '13px sans-serif'; ctx.fillText('시세 누적 중 (1분마다 기록)', 10, 100); return; }
   const PH = 170, VH = 60, PT = 8, VT = 192;
   let hi = -Infinity, lo = Infinity, vmax = 0;
-  for (const c of candles) { hi = Math.max(hi, c.h); lo = Math.min(lo, c.l); vmax = Math.max(vmax, c.v); }
+  for (const c of view) { hi = Math.max(hi, c.h); lo = Math.min(lo, c.l); vmax = Math.max(vmax, c.v); }
   // Y축 여백: 봉이 위아래에 붙어 납작해지지 않도록 상하 15% + 최소 0.4% 보장
   const rawRg = (hi - lo) || 1;
   const pad = Math.max(rawRg * 0.15, hi * 0.002);
@@ -120,10 +172,11 @@ function draw() {
   const Y = (p) => PT + (1 - (p - lo) / rg) * PH;
   ctx.strokeStyle = '#EEF0F3'; ctx.lineWidth = 1;
   for (let g = 0; g < 4; g++) { const y = PT + PH * g / 3; ctx.beginPath(); ctx.moveTo(52, y); ctx.lineTo(700, y); ctx.stroke(); }
-  const n = candles.length, slot = (700 - 52) / n, bw = Math.max(3, Math.min(18, slot * 0.65));
-  candles.forEach((c, i) => {
+  // 공백 제거: 봉 사이 간격 최소화 (슬롯의 92% 사용)
+  const n = view.length, slot = (700 - 52) / n, bw = Math.max(2, Math.min(26, slot * 0.92));
+  view.forEach((c, i) => {
     const x = 52 + slot * i + slot / 2, col = c.c >= c.o ? UP : DOWN;
-    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1.5;
+    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = Math.max(1.5, Math.min(3, bw * 0.18));
     // 꼬리: 고가-저가 수직선 (봉에 점이 1개뿐이어도 최소 표시)
     const yH = Y(c.h), yL = Y(c.l);
     ctx.beginPath(); ctx.moveTo(x, yH); ctx.lineTo(x, Math.max(yL, yH + 1)); ctx.stroke();
@@ -131,26 +184,67 @@ function draw() {
     const yO = Y(c.o), yC = Y(c.c), top = Math.min(yO, yC), bh = Math.abs(yC - yO);
     if (bh < 2) {
       ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(x - bw / 2 - 2, top); ctx.lineTo(x + bw / 2 + 2, top); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x - bw / 2 - 1, top); ctx.lineTo(x + bw / 2 + 1, top); ctx.stroke();
       ctx.lineWidth = 1.5;
     } else {
       ctx.fillRect(x - bw / 2, top, bw, bh);
     }
     if (vmax > 0) { const vh = Math.max(1, c.v / vmax * VH); ctx.globalAlpha = 0.75; ctx.fillRect(x - bw / 2, VT + VH - vh, bw, vh); ctx.globalAlpha = 1; }
   });
-  const last = candles[candles.length - 1].c;
+  const last = view[view.length - 1].c;
   ctx.setLineDash([5, 4]); ctx.strokeStyle = '#8B95A1';
   ctx.beginPath(); ctx.moveTo(52, Y(last)); ctx.lineTo(700, Y(last)); ctx.stroke(); ctx.setLineDash([]);
   ctx.fillStyle = '#191F28'; ctx.font = 'bold 11px sans-serif';
   ctx.fillText(lo.toLocaleString(), 2, Y(lo)); ctx.fillText(hi.toLocaleString(), 2, Y(hi));
   ctx.fillStyle = '#8B95A1';
   const daily = bucketSec >= 86400;
-  for (let g = 0; g < 4; g++) { const c = candles[Math.floor((n - 1) * g / 3)]; if (c) ctx.fillText(fmtT(c.t, daily), 52 + slot * Math.floor((n - 1) * g / 3), 258); }
-  const first = candles[0], chg = (last - first.o) / first.o * 100;
-  document.getElementById('range').textContent = `최근 ${n}봉 · 고 ${fmt(hi)} · 저 ${fmt(lo)} · 첫봉 시가 대비 ${chg >= 0 ? '+' : ''}${chg.toFixed(2)}% · 거래량 막대는 실제 체결 합계`;
+  for (let g = 0; g < 4; g++) { const c = view[Math.floor((n - 1) * g / 3)]; if (c) ctx.fillText(fmtT(c.t, daily), 52 + slot * Math.floor((n - 1) * g / 3), 258); }
+  const first = view[0], chg = (last - first.o) / first.o * 100;
+  const pos = viewEnd === 0 ? '라이브' : `과거 ${viewEnd}봉 전`;
+  document.getElementById('range').textContent = `보기 ${n}봉 (${pos}) · 전체 ${candles.length}봉 · 고 ${fmt(hi)} · 저 ${fmt(lo)} · 첫봉 시가 대비 ${chg >= 0 ? '+' : ''}${chg.toFixed(2)}% · 거래량 막대는 실제 체결 합계`;
+  document.getElementById('liveBadge').textContent = viewEnd === 0 ? '' : '과거 보는 중 — ● 라이브를 누르면 최신으로';
+  // 십자선: 호버/탭한 봉에 세로+가로 점선 + 툴팁
+  if (hoverIdx != null && hoverIdx >= 0 && hoverIdx < n) {
+    const hc = view[hoverIdx], hx = 52 + slot * hoverIdx + slot / 2, hy = Y(hc.c);
+    ctx.setLineDash([4, 4]); ctx.strokeStyle = '#8B95A1'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(hx, PT); ctx.lineTo(hx, PT + PH + VH + 8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(52, hy); ctx.lineTo(700, hy); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#191F28';
+    ctx.fillRect(hx - 2, PT + PH + VH + 8, 4, 4);
+    showTip(hx, hy, hc);
+  } else {
+    hideTip();
+  }
+}
+function tipDate(t) {
+  const d = new Date(t), p = (x) => String(x).padStart(2, '0');
+  return bucketSec >= 86400 ? `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}` : `${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function showTip(hx, hy, c) {
+  const tip = document.getElementById('chartTip'), cv = document.getElementById('candle');
+  const rect = cv.getBoundingClientRect(), k = (rect.width || 700) / 700;
+  const col = c.c >= c.o ? UP : DOWN;
+  tip.innerHTML = `<b>${tipDate(c.t)}</b> <b style="color:${col}">${c.c >= c.o ? '▲' : '▼'} ${c.c.toLocaleString()}원</b><br>시가 ${c.o.toLocaleString()} · 고가 ${c.h.toLocaleString()}<br>저가 ${c.l.toLocaleString()} · 종가 ${c.c.toLocaleString()}<br>거래량 ${c.v ? c.v.toLocaleString() + '주' : '-'}`;
+  tip.style.display = 'block';
+  const tw = tip.offsetWidth, th = tip.offsetHeight;
+  let lx = hx * k + 12, ly = hy * k - th - 10;
+  if (lx + tw > rect.width) lx = hx * k - tw - 12;
+  if (ly < 0) ly = hy * k + 12;
+  tip.style.left = lx + 'px'; tip.style.top = ly + 'px';
+}
+function hideTip() { document.getElementById('chartTip').style.display = 'none'; }
+function hoverFromEvent(e) {
+  const cv = document.getElementById('candle'), rect = cv.getBoundingClientRect();
+  const view = viewSlice(), n = view.length;
+  if (!n) return null;
+  const k = 700 / (rect.width || 700);
+  const x = (e.clientX - rect.left) * k;
+  const slot = (700 - 52) / n;
+  const idx = Math.floor((x - 52) / slot);
+  return (idx >= 0 && idx < n) ? idx : null;
 }
 // 실시간 캔들 갱신: 진행 중 봉은 시가 유지·고/저/종가만 갱신, 주기 경계면 새 봉 push.
-// 직접 그린 canvas라 draw()+renderHead() 재호출이 chart.update() 역할을 함.
+// 과거를 보는 중(viewEnd>0)이면 차트를 점프시키지 않고 조용히 반영.
 function updateLiveCandle(price, atMs) {
   if (!candles.length || !Number.isFinite(price)) return;
   const b = Math.floor((atMs || Date.now()) / 1000 / bucketSec) * bucketSec;
@@ -159,26 +253,47 @@ function updateLiveCandle(price, atMs) {
     last.h = Math.max(last.h, price);
     last.l = Math.min(last.l, price);
     last.c = price;
+  } else if (Math.floor(last.t / 1000) < b) {
+    // 빈 봉이 생겼다면 전 종가로 메워서 공백 없이 연결
+    for (let fb = Math.floor(last.t / 1000) + bucketSec; fb < b; fb += bucketSec) {
+      candles.push({ t: fb * 1000, o: last.c, h: last.c, l: last.c, c: last.c, v: 0, flat: true });
+    }
+    candles.push({ t: b * 1000, o: last.c, h: Math.max(last.c, price), l: Math.min(last.c, price), c: price, v: 0 });
   } else {
-    candles.push({ t: b * 1000, o: price, h: price, l: price, c: price, v: 0 });
-    if (candles.length > 60) candles.shift();
+    return;
   }
   livePrice = price;
   draw();
   renderHead();
 }
+function dayBase() {
+  // 당일 기준가: API day_open 우선, 없으면 당일 첫 포인트, 그것도 없으면 전체 첫 포인트
+  if (cur && cur.day_open) return cur.day_open;
+  const today = new Date().toDateString();
+  const todays = allPts.filter(p => new Date(ts(p.at)).toDateString() === today);
+  if (todays.length) return todays[0].price;
+  return allPts.length ? allPts[0].price : (cur ? cur.cur_price : 0);
+}
+function paintPrice(px) {
+  // 현재가 색상은 실시간 틱이 아닌 당일 변동 기준 + 변경 시 팝 애니메이션
+  const pe = document.getElementById('price');
+  pe.textContent = fmt(px);
+  const base = dayBase();
+  pe.style.color = px >= base ? UP : DOWN;
+  pe.classList.remove('tick'); void pe.offsetWidth; pe.classList.add('tick');
+}
 function renderHead() {
   if (!cur || !candles.length) return;
-  document.getElementById('title').textContent = cur.name + ' (' + cur.code + ')' + (cur.status === '정지' ? ' · 정지' : '');
-  document.getElementById('price').textContent = fmt(cur.cur_price);
-  const first = candles[0], last = candles[candles.length - 1];
-  const d = last.c - first.o, r = first.o ? d / first.o * 100 : 0;
+  document.getElementById('title').innerHTML = `${cur.name} (${cur.code})${cur.status === '정지' ? ' · 정지' : ''}${cur.tags ? `<span class="tagpill">${cur.tags}</span>` : ''}`;
+  paintPrice(cur.cur_price);
+  const base = dayBase();
+  const d = cur.cur_price - base, r = base ? d / base * 100 : 0;
   const el = document.getElementById('chgLine');
   if (cur.status === '정지') {
     el.textContent = '거래정지 중 · 차트 고정';
     el.style.color = '#8B95A1';
   } else {
-    el.textContent = `${d >= 0 ? '+' : ''}${d.toLocaleString()}원 (${r >= 0 ? '+' : ''}${r.toFixed(2)}%) 첫봉 시가 대비`;
+    el.textContent = `${d >= 0 ? '+' : ''}${d.toLocaleString()}원 (${r >= 0 ? '+' : ''}${r.toFixed(2)}%) 당일 시가 대비`;
     el.style.color = d >= 0 ? UP : DOWN;
   }
   let hi = -Infinity, lo = Infinity;
@@ -191,7 +306,7 @@ function renderHead() {
   const strength = tsv > 0 ? (tbv / tsv * 100) : 100;
   const cell = (k, v, col) => `<div class="cell"><span>${k}</span><b${col ? ` style="color:${col}"` : ''}>${v}</b></div>`;
   document.getElementById('ticker').innerHTML =
-    cell('전일종가(기록 시작가)', fmt(prev)) + cell('시가', fmt(first.o)) + cell('고가', fmt(hi), UP) + cell('저가', fmt(lo), DOWN) +
+    cell('전일종가(기록 시작가)', fmt(prev)) + cell('당일시가', fmt(base)) + cell('고가', fmt(hi), UP) + cell('저가', fmt(lo), DOWN) +
     cell('거래량', tv ? tv.toLocaleString() + '주' : '체결 없음') + cell('거래대금', tamt ? (tamt / 1e8).toFixed(2) + '억원' : '-') +
     cell('52주 최고(기록내)', fmt(wHigh)) + cell('시가총액(가상)', (cur.cur_price * VIRTUAL_SHARES / 1e8).toFixed(1) + '억원');
   const obm = document.getElementById('obMeta');
@@ -261,14 +376,36 @@ function paintWatch() {
   let w = []; try { w = JSON.parse(localStorage.getItem('watch') || '[]'); } catch (e) {}
   document.getElementById('watchBtn').textContent = w.includes(code) ? '★ 관심중' : '☆ 관심';
 }
+async function renderNews() {
+  try {
+    const ns = await api('/api/notices?stock=' + encodeURIComponent(code));
+    document.getElementById('news').innerHTML = ns.slice(0, 5).map(n => `<div class="post"><b>${n.title}</b><br><small>${String(n.created_at).slice(0, 16)} · ${n.scope}${n.pinned ? ' · 고정' : ''}</small><p style="font-size:13px;margin-top:4px">${n.body}</p></div>`).join('') || '<p style="font-size:13px;color:var(--muted)">아직 뉴스가 없어요. 잠시 후 자동 속보가 뜹니다.</p>';
+  } catch (e) { /* 비로그인도 조회 가능, 실패 시 무시 */ }
+}
+function histLimit() { return bucketSec >= 86400 ? 2000 : 500; } // 1일·1주·1달은 더 많이
+async function loadMore() {
+  if (loadingMore || !hasMore || !oldestAt) return ttoast('더 볼 과거 기록이 없어요');
+  loadingMore = true;
+  try {
+    const h = await api(`/api/stocks/${encodeURIComponent(code)}/history?limit=${histLimit()}&before=` + encodeURIComponent(oldestAt));
+    if (h.points && h.points.length) {
+      allPts = [...h.points, ...allPts];
+      hasMore = h.hasMore; oldestAt = h.oldestAt;
+      buildCandles();
+      draw();
+      ttoast(`과거 ${h.points.length}개 기록 추가`);
+    } else { hasMore = false; ttoast('더 볼 과거 기록이 없어요'); }
+  } catch (e) { ttoast('과거 로드 실패: ' + e.message); }
+  loadingMore = false;
+}
 async function load(flash) {
   const s = await api('/api/stocks/' + encodeURIComponent(code));
   const changed = cur && cur.cur_price !== s.cur_price;
   cur = s; myQty = s.qty || 0; myAvg = s.avg_price;
   try { const pf = await api('/api/portfolio'); myCash = pf.cash; document.getElementById('cashLine').textContent = `주식 살 수 있는 돈 ${fmt(pf.cash)}`; } catch (e) {}
   document.getElementById('hold').innerHTML = s.isHolder ? `보유중 <span class="pill p-up">${s.qty}주 · 내가 산 평균 가격 ${fmt(s.avg_price)}</span>` : '아직 갖고 있지 않아요';
-  const h = await api(`/api/stocks/${encodeURIComponent(code)}/history?limit=200`);
-  allPts = h.points;
+  const h = await api(`/api/stocks/${encodeURIComponent(code)}/history?limit=${histLimit()}`);
+  allPts = h.points; hasMore = h.hasMore; oldestAt = h.oldestAt;
   const last = allPts[allPts.length - 1];
   if (last && last.price !== s.cur_price) allPts.push({ price: s.cur_price, at: new Date().toISOString() });
   try { const t = await api(`/api/stocks/${encodeURIComponent(code)}/trades?limit=200`); trades = t.trades; } catch (e) { trades = []; }
@@ -276,6 +413,7 @@ async function load(flash) {
   anchorPrice = s.cur_price; livePrice = s.cur_price; // 서버 확정가로 스냅백
   renderHead(); draw(); renderBook(flash || changed); renderTape();
   await renderPosts();
+  await renderNews();
   paintWatch();
 }
 document.getElementById('watchBtn').onclick = () => {
@@ -283,7 +421,51 @@ document.getElementById('watchBtn').onclick = () => {
   w = w.includes(code) ? w.filter(x => x !== code) : [...w, code];
   localStorage.setItem('watch', JSON.stringify(w)); paintWatch(); ttoast(w.includes(code) ? '관심 종목에 담았어요' : '관심을 해제했어요');
 };
-document.querySelectorAll('#bucket button').forEach(b => b.onclick = () => { document.querySelectorAll('#bucket button').forEach(x => x.classList.remove('on')); b.classList.add('on'); bucketSec = Number(b.dataset.b); buildCandles(); if (cur) { anchorPrice = cur.cur_price; livePrice = cur.cur_price; } renderHead(); draw(); });
+document.querySelectorAll('#bucket button').forEach(b => b.onclick = async () => {
+  document.querySelectorAll('#bucket button').forEach(x => x.classList.remove('on')); b.classList.add('on');
+  bucketSec = Number(b.dataset.b); viewEnd = 0; hoverIdx = null; hideTip();
+  try {
+    const h = await api(`/api/stocks/${encodeURIComponent(code)}/history?limit=${histLimit()}`);
+    allPts = h.points; hasMore = h.hasMore; oldestAt = h.oldestAt;
+  } catch (e) { /* 기존 데이터로 폴백 */ }
+  buildCandles(); if (cur) { anchorPrice = cur.cur_price; livePrice = cur.cur_price; } renderHead(); draw();
+});
+// 차트 조작: 드래그 팬(좌우) + 휠 줌(봉 개수) + 버튼
+document.getElementById('prevBtn').onclick = () => { viewEnd = Math.min(Math.max(0, candles.length - 1), viewEnd + viewCount); draw(); };
+document.getElementById('nextBtn').onclick = () => { viewEnd = Math.max(0, viewEnd - viewCount); draw(); };
+document.getElementById('liveBtn').onclick = () => { viewEnd = 0; draw(); };
+document.getElementById('moreBtn').onclick = loadMore;
+(function bindChartNav() {
+  const cv = document.getElementById('candle');
+  let dragX = null, dragEnd = 0, moved = false;
+  cv.addEventListener('pointerdown', (e) => { dragX = e.clientX; dragEnd = viewEnd; moved = false; cv.setPointerCapture(e.pointerId); cv.style.cursor = 'grabbing'; });
+  cv.addEventListener('pointermove', (e) => {
+    if (dragX == null) {
+      if (e.pointerType === 'mouse') { hoverIdx = hoverFromEvent(e); draw(); } // 마우스 호버 툴팁
+      return;
+    }
+    const rect = cv.getBoundingClientRect(), slot = (rect.width || 700) / Math.max(1, viewSlice().length);
+    const dx = dragX - e.clientX;
+    if (Math.abs(dx) > 8) { moved = true; hoverIdx = null; }
+    if (moved) {
+      const dCandles = Math.round(dx / Math.max(4, slot));
+      viewEnd = Math.min(Math.max(0, candles.length - 1), Math.max(0, dragEnd + dCandles));
+      draw();
+    }
+  });
+  const endDrag = (e) => {
+    if (dragX != null && !moved && e && e.clientX != null) hoverIdx = hoverFromEvent(e); // 탭(터치 포함) 툴팁
+    dragX = null; cv.style.cursor = 'grab'; draw();
+  };
+  cv.addEventListener('pointerup', endDrag);
+  cv.addEventListener('pointercancel', () => { dragX = null; cv.style.cursor = 'grab'; });
+  cv.addEventListener('pointerleave', () => { if (dragX == null) { hoverIdx = null; draw(); } });
+  cv.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    viewCount = Math.min(150, Math.max(10, viewCount + (e.deltaY > 0 ? 5 : -5)));
+    draw();
+  }, { passive: false });
+})();
 document.getElementById('buyFab').onclick = () => openSheet('buy');
 document.getElementById('sellFab').onclick = () => openSheet('sell');
 document.getElementById('sheetBack').onclick = (e) => { if (e.target.id === 'sheetBack') e.target.classList.remove('show'); };
@@ -329,9 +511,7 @@ setInterval(() => {
   np = Math.max(100, Math.min(anchorPrice + cap, Math.max(anchorPrice - cap, np)));
   if (np === livePrice) return;
   updateLiveCandle(np);
-  const pe = document.getElementById('price');
-  pe.textContent = fmt(np);
-  pe.style.color = np >= anchorPrice ? UP : DOWN;
+  paintPrice(np); // 당일 기준 색상 + 팝 애니메이션
 }, 2000);
 </script>
 </body>

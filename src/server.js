@@ -10,6 +10,7 @@ const portfolioRouter = require('./routes/portfolio');
 const boardRouter = require('./routes/board');
 const adminRouter = require('./routes/admin');
 const { startPriceLoop } = require('./price');
+const { startNewsLoop } = require('./news');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -38,10 +39,13 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/stocks', stocksRouter);
 app.use('/api/trade', tradeRouter);
-app.use('/api', portfolioRouter);
+// 공개 라우터(board: /posts 읽기·/notices)를 로그인 전용(portfolio)보다 먼저 장착해야
+// GET /api/notices 같은 공개 API가 requireLogin에 가로막히지 않음 (경로 겹침 없음)
 app.use('/api', boardRouter);
+app.use('/api', portfolioRouter);
 app.use('/api/admin', adminRouter);
 startPriceLoop();
+startNewsLoop(); // 랜덤 뉴스: 5~60분마다 자동 이벤트+속보 공시 (무유저에도 동작)
 
 // 정적 서빙 (public/*.html)
 app.use(express.static(path.join(__dirname, '..', 'public')));

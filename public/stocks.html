@@ -24,8 +24,9 @@
   <main class="main">
     <div class="panel">
       <h2>종목 탐색 · 가상시세 (1분 갱신)</h2>
+      <div id="flash" style="margin-top:8px"></div>
       <div class="search"><input id="q" placeholder="종목명 또는 코드 검색"><button class="follow-btn" id="btn">검색</button></div>
-      <table><tr><th>종목</th><th>현재가</th><th>상태</th><th></th></tr><tbody id="rows"></tbody></table>
+      <table><tr><th>종목</th><th>현재가</th><th>그래프</th><th>상태</th><th></th></tr><tbody id="rows"></tbody></table>
     </div>
   </main>
   <div class="rail"><div class="mini"><h3>안내</h3><p style="font-size:12.5px;color:var(--muted)">시장가 단일가 · 수수료 0원 · 정지 종목 거래 차단</p></div><p class="note">기본 화면 = MY 홈 · 수수료 0원 · 시장가 단일가</p></div>
@@ -33,11 +34,44 @@
 <script src="/app.js"></script>
 <script>
 const rows = document.getElementById('rows');
+const UP = '#F04452', DOWN = '#3182F6';
+function sparkline(cv, prices, up) {
+  const ctx = cv.getContext('2d'), W = cv.width, H = cv.height;
+  ctx.clearRect(0, 0, W, H);
+  if (!prices || prices.length < 2) { ctx.fillStyle = '#B0B8C1'; ctx.font = '10px sans-serif'; ctx.fillText('기록 중', 4, H / 2 + 3); return; }
+  const hi = Math.max(...prices), lo = Math.min(...prices), rg = (hi - lo) || 1;
+  const X = (i) => 2 + i / (prices.length - 1) * (W - 4);
+  const Y = (p) => 3 + (1 - (p - lo) / rg) * (H - 6);
+  ctx.strokeStyle = up ? UP : DOWN; ctx.lineWidth = 1.6; ctx.beginPath();
+  prices.forEach((p, i) => i ? ctx.lineTo(X(i), Y(p)) : ctx.moveTo(X(0), Y(p)));
+  ctx.stroke();
+  // 마지막 점 강조
+  ctx.fillStyle = up ? UP : DOWN;
+  ctx.beginPath(); ctx.arc(X(prices.length - 1), Y(prices[prices.length - 1]), 2.4, 0, 7); ctx.fill();
+}
 async function load() {
   const q = document.getElementById('q').value.trim();
   const list = await api('/api/stocks' + (q ? '?q=' + encodeURIComponent(q) : ''));
-  rows.innerHTML = list.map(s => `<tr class="rowlink" data-c="${s.code}"><td><b>${s.name}</b> <span style="color:var(--muted);font-size:12px">${s.code}</span></td><td>${fmt(s.cur_price)}</td><td>${s.status === '정지' ? '<span class="pill p-up">정지</span>' : '<span class="pill p-gray">정상</span>'}</td><td><button class="follow-btn">상세</button></td></tr>`).join('') || '<tr><td colspan=4 style="color:var(--muted)">결과 없음</td></tr>';
+  rows.innerHTML = list.map(s => {
+    const up = (s.day_rate || 0) >= 0, col = up ? UP : DOWN;
+    const r = (s.day_rate * 100);
+    return `<tr class="rowlink" data-c="${s.code}"><td><b>${s.name}</b> <span style="color:var(--muted);font-size:12px">${s.code}</span>${s.tags ? `<br><span style="font-size:11px;color:#4F46E5;font-weight:800">#${s.tags}</span>` : ''}<br><span style="font-size:11.5px;font-weight:800;color:${col}">${up ? '+' : ''}${r.toFixed(2)}%</span></td><td style="font-weight:800;color:${col}">${fmt(s.cur_price)}</td><td><canvas data-spark="${s.code}" width="110" height="36"></canvas></td><td>${s.status === '정지' ? '<span class="pill p-up">정지</span>' : '<span class="pill p-gray">정상</span>'}</td><td><button class="follow-btn">상세</button></td></tr>`;
+  }).join('') || '<tr><td colspan=5 style="color:var(--muted)">결과 없음</td></tr>';
   rows.querySelectorAll('tr.rowlink').forEach(tr => tr.onclick = () => location.href = '/stock.html?code=' + tr.dataset.c);
+  // 상세페이지 없이 미리보기: 종목별 최근 30포인트 스파크라인 (당일색 연동)
+  for (const s of list) {
+    try {
+      const h = await api(`/api/stocks/${encodeURIComponent(s.code)}/history?limit=30`);
+      const cv = document.querySelector(`[data-spark="${s.code}"]`);
+      if (cv) sparkline(cv, (h.points || []).map(p => p.price), (s.day_rate || 0) >= 0);
+    } catch (e) { /* 개별 실패 무시 */ }
+  }
+  try {
+    const ns = await api('/api/notices');
+    const flash = ns.filter(n => String(n.title).startsWith('[속보]')).slice(0, 3);
+    document.getElementById('flash').innerHTML = flash.map(n => `<div class="post" style="cursor:pointer" data-c="${n.stock_code}"><b>${n.title}</b><br><small>${String(n.created_at).slice(5, 16)}</small></div>`).join('');
+    document.querySelectorAll('#flash .post').forEach(el => el.onclick = () => location.href = '/stock.html?code=' + el.dataset.c);
+  } catch (e) { /* 무시 */ }
 }
 document.getElementById('btn').onclick = load;
 document.getElementById('q').onkeydown = (e) => { if (e.key === 'Enter') load(); };
