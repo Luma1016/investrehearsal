@@ -41,7 +41,7 @@ function displayVol(code, isBlue, realVol) {
 // GET /api/stocks?q= 목록 (태그·당일등락·실거래량 포함)
 router.get('/', (req, res) => {
   const q = (req.query.q || '').trim();
-  const base = `SELECT s.code, s.name, s.cur_price, s.status, s.tags, s.stock_type, s.updated_at,
+  const base = `SELECT s.code, s.name, s.cur_price, s.status, s.tags, s.stock_type, s.dividend, s.listed_shares, s.updated_at,
       COALESCE(v.tv, 0) AS vol, COALESCE(v.tover, 0) AS turnover, COALESCE(v.tc, 0) AS trades
     FROM stocks s LEFT JOIN (
       SELECT stock_code, SUM(qty) AS tv, SUM(qty * price) AS tover, COUNT(*) AS tc
@@ -96,7 +96,7 @@ router.get('/:code/trades', (req, res) => {
 
 // GET /api/stocks/:code 상세 (현재가 + 보유뱃지용 + 태그 + 당일등락)
 router.get('/:code', (req, res) => {
-  const s = db.prepare('SELECT code, name, cur_price, status, tags, stock_type, dividend, updated_at FROM stocks WHERE code = ?')
+  const s = db.prepare('SELECT code, name, cur_price, status, tags, stock_type, dividend, listed_shares, updated_at FROM stocks WHERE code = ?')
     .get(req.params.code);
   if (!s) return res.status(404).json({ error: 'NOT_FOUND' });
   let isHolder = false;

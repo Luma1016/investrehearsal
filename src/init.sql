@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS stocks (
   tags TEXT NOT NULL DEFAULT '',
   stock_type TEXT NOT NULL DEFAULT 'normal' CHECK (stock_type IN ('normal','bluechip')),
   dividend INTEGER NOT NULL DEFAULT 0,
+  listed_shares INTEGER NOT NULL DEFAULT 1000000,
   updated_at DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
 );
 

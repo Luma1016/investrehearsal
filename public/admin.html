@@ -77,9 +77,9 @@
       </div>
       <div id="t4" style="margin-top:12px;display:none">
         <h2>종목 통합 관리 (추가·이름·주가·코드·상태·태그 한 번에)</h2>
-        <div class="search"><input id="sCode" placeholder="코드 (영문대문자·숫자 2~10자)" style="max-width:140px"><input id="sName" placeholder="종목 이름" style="max-width:130px"><input id="sPrice" type="number" placeholder="상장가 (100원 이상)" style="max-width:120px"><input id="sTags" placeholder="태그 (예: 2차전지)" style="max-width:110px"><select id="sType" style="max-width:100px"><option value="normal">일반</option><option value="bluechip">대장주</option></select><input id="sDiv" type="number" placeholder="배당/주 (0=없음)" style="max-width:110px"><button class="follow-btn" id="sAdd">추가</button></div>
-        <table><tr><th>코드</th><th>이름</th><th>현재가 → 새 주가</th><th>상태</th><th>태그</th><th>유형</th><th>배당/주</th><th>보유자·거래량</th><th></th></tr><tbody id="sRows"></tbody></table>
-        <p style="font-size:11.5px;color:var(--muted);margin-top:6px">행별 저장 버튼 하나로 이름·코드·상태·주가·태그·유형·배당을 한 번에 반영 (주가 변경은 조작로그+공시 자동 기록, 코드 변경 시 보유·거래·게시글 함께 이전, 같은 태그끼리 테마 뉴스 동시 발생, 대장주는 변동 작게·거래량 크게)</p>
+        <div class="search"><input id="sCode" placeholder="코드 (영문대문자·숫자 2~10자)" style="max-width:140px"><input id="sName" placeholder="종목 이름" style="max-width:130px"><input id="sPrice" type="number" placeholder="상장가 (100원 이상)" style="max-width:120px"><input id="sTags" placeholder="태그 (예: 2차전지)" style="max-width:110px"><select id="sType" style="max-width:100px"><option value="normal">일반</option><option value="bluechip">대장주</option></select><input id="sDiv" type="number" placeholder="배당/주 (0=없음)" style="max-width:110px"><input id="sShares" type="number" placeholder="상장주식수" style="max-width:100px"><button class="follow-btn" id="sAdd">추가</button></div>
+        <table><tr><th>코드</th><th>이름</th><th>현재가 → 새 주가</th><th>상태</th><th>태그</th><th>유형</th><th>배당/주</th><th>상장주식수</th><th>보유자·거래량</th><th></th></tr><tbody id="sRows"></tbody></table>
+        <p style="font-size:11.5px;color:var(--muted);margin-top:6px">행별 저장 버튼 하나로 이름·코드·상태·주가·태그·유형·배당·상장주식수를 한 번에 반영 (주가 변경은 조작로그+공시 자동 기록, 코드 변경 시 보유·거래·게시글 함께 이전, 같은 태그끼리 테마 뉴스 동시 발생, 대장주는 변동 작게·거래량 크게)</p>
       </div>
       <div id="t5" style="margin-top:12px;display:none">
         <h2>시장 지수 추가 (대시보드 상단 위젯)</h2>
@@ -152,7 +152,7 @@ async function loadAll() {
   document.querySelectorAll('[data-unstop]').forEach(b => b.onclick = async () => { await api(`/api/admin/users/${b.dataset.unstop}/stop`, 'PUT', { status: '정상' }); loadAll(); });
   const st = await api('/api/admin/stocks');
   document.getElementById('tagList').innerHTML = [...new Set(st.map(s => s.tags).filter(Boolean))].map(t => `<option value="${t}">`).join('');
-  document.getElementById('sRows').innerHTML = st.map(s => `<tr><td><input data-code="${s.code}" value="${s.code}" style="max-width:90px"></td><td><input data-name="${s.code}" value="${s.name}" style="max-width:130px"></td><td>${Number(s.cur_price).toLocaleString()}원 → <input data-price="${s.code}" type="number" placeholder="새 주가" style="max-width:100px"></td><td><select data-status="${s.code}" data-orig="${s.status}"><option value="정상"${s.status === '정상' ? ' selected' : ''}>정상</option><option value="정지"${s.status === '정지' ? ' selected' : ''}>정지</option></select></td><td><input data-tags="${s.code}" value="${s.tags || ''}" style="max-width:90px"></td><td><select data-stype="${s.code}" data-orig="${s.stock_type || 'normal'}"><option value="normal"${(s.stock_type || 'normal') === 'normal' ? ' selected' : ''}>일반</option><option value="bluechip"${s.stock_type === 'bluechip' ? ' selected' : ''}>대장주</option></select></td><td><input data-div="${s.code}" type="number" value="${s.dividend || 0}" style="max-width:80px"></td><td style="color:var(--muted);font-size:12px">${s.holders}명 · ${Number(s.total_vol).toLocaleString()}주</td><td><button class="follow-btn" data-save="${s.code}">저장</button></td></tr>`).join('');
+  document.getElementById('sRows').innerHTML = st.map(s => `<tr><td><input data-code="${s.code}" value="${s.code}" style="max-width:90px"></td><td><input data-name="${s.code}" value="${s.name}" style="max-width:130px"></td><td>${Number(s.cur_price).toLocaleString()}원 → <input data-price="${s.code}" type="number" placeholder="새 주가" style="max-width:100px"></td><td><select data-status="${s.code}" data-orig="${s.status}"><option value="정상"${s.status === '정상' ? ' selected' : ''}>정상</option><option value="정지"${s.status === '정지' ? ' selected' : ''}>정지</option></select></td><td><input data-tags="${s.code}" value="${s.tags || ''}" style="max-width:90px"></td><td><select data-stype="${s.code}" data-orig="${s.stock_type || 'normal'}"><option value="normal"${(s.stock_type || 'normal') === 'normal' ? ' selected' : ''}>일반</option><option value="bluechip"${s.stock_type === 'bluechip' ? ' selected' : ''}>대장주</option></select></td><td><input data-div="${s.code}" type="number" value="${s.dividend || 0}" style="max-width:80px"></td><td><input data-sh="${s.code}" type="number" value="${s.listed_shares || 1000000}" style="max-width:100px"></td><td style="color:var(--muted);font-size:12px">${s.holders}명 · ${Number(s.total_vol).toLocaleString()}주</td><td><button class="follow-btn" data-save="${s.code}">저장</button></td></tr>`).join('');
   document.querySelectorAll('[data-save]').forEach(b => b.onclick = async () => {
     const oldC = b.dataset.save;
     const codeEl = document.querySelector(`[data-code="${oldC}"]`);
@@ -162,6 +162,7 @@ async function loadAll() {
     const tagEl = document.querySelector(`[data-tags="${oldC}"]`);
     const typeEl = document.querySelector(`[data-stype="${oldC}"]`);
     const divEl = document.querySelector(`[data-div="${oldC}"]`);
+    const shEl = document.querySelector(`[data-sh="${oldC}"]`);
     const newC = codeEl.value.trim().toUpperCase();
     try {
       const payload = {};
@@ -171,8 +172,9 @@ async function loadAll() {
       if (tagEl.value !== tagEl.defaultValue) payload.tags = tagEl.value;
       if (typeEl.value !== typeEl.dataset.orig) payload.stock_type = typeEl.value;
       if (divEl.value !== divEl.defaultValue) payload.dividend = Number(divEl.value);
+      if (shEl.value !== shEl.defaultValue) payload.listed_shares = Number(shEl.value);
       const target = newC && newC !== oldC ? newC : oldC;
-      const hasMeta = payload.new_code || payload.name || payload.status || payload.tags !== undefined || payload.stock_type || payload.dividend !== undefined;
+      const hasMeta = payload.new_code || payload.name || payload.status || payload.tags !== undefined || payload.stock_type || payload.dividend !== undefined || payload.listed_shares !== undefined;
       if (hasMeta) await api(`/api/admin/stocks/${encodeURIComponent(oldC)}`, 'PUT', payload);
       if (pxEl.value && Number(pxEl.value) > 0) await api(`/api/admin/stocks/${encodeURIComponent(target)}/price`, 'POST', { price: Number(pxEl.value), reason: '관리자 통합화면 조정' });
       if (!hasMeta && !(pxEl.value && Number(pxEl.value) > 0)) return toast('바뀐 내용이 없어요');
@@ -330,7 +332,7 @@ document.getElementById('bBlind').onclick = async () => { await api(`/api/admin/
 document.getElementById('bUnblind').onclick = async () => { await api(`/api/admin/posts/${document.getElementById('bId').value}/unblind`, 'POST'); toast('해제'); loadAll(); };
 document.getElementById('bDel').onclick = async () => { if (!confirm('삭제할까요?')) return; await api(`/api/admin/posts/${document.getElementById('bId').value}`, 'DELETE'); toast('삭제'); loadAll(); };
 document.getElementById('sAdd').onclick = async () => {
-  try { await api('/api/admin/stocks', 'POST', { code: document.getElementById('sCode').value.trim(), name: document.getElementById('sName').value.trim(), cur_price: Number(document.getElementById('sPrice').value), tags: document.getElementById('sTags').value.trim(), stock_type: document.getElementById('sType').value, dividend: Number(document.getElementById('sDiv').value) || 0 }); toast('종목 추가됨 · 공시 발행'); loadAll(); }
+  try { await api('/api/admin/stocks', 'POST', { code: document.getElementById('sCode').value.trim(), name: document.getElementById('sName').value.trim(), cur_price: Number(document.getElementById('sPrice').value), tags: document.getElementById('sTags').value.trim(), stock_type: document.getElementById('sType').value, dividend: Number(document.getElementById('sDiv').value) || 0, listed_shares: Number(document.getElementById('sShares').value) || undefined }); toast('종목 추가됨 · 공시 발행'); loadAll(); }
   catch (e) { toast('추가 실패: ' + e.message); }
 };
 document.getElementById('logReset').onclick = async () => {

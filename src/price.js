@@ -101,7 +101,9 @@ function tick(intervalMs = 10000) {
     }
   }
   const SCALE = intervalMs / 60000; // 분당 틱 수 보정 (10초 → 1/6)
-  const stocks = db.prepare("SELECT code, name, cur_price, stock_type FROM stocks WHERE status != '정지'").all();
+  const LEADER_PULL = 0.15; // 같은 태그 대장주 등락이 일반주에 미치는 당김 비율 (가볍게)
+  const MAX_PULL = 0.005; // 틱당 당김 상한 0.5% (아무리 쏠려도 심하지 않게)
+  const stocks = db.prepare("SELECT code, name, cur_price, stock_type, tags, listed_shares FROM stocks WHERE status != '정지'").all();
   const upd = db.prepare("UPDATE stocks SET cur_price = ?, updated_at = datetime('now','localtime') WHERE code = ?");
   const log = db.prepare(
     'INSERT INTO price_logs (stock_code, prev, next, cause) VALUES (?,?,?,?)'
@@ -109,6 +111,8 @@ function tick(intervalMs = 10000) {
   const volumes = recentVolumes(60); // 최근 60초 체결 압력 (틱 간격과 무관하게 고정)
   const priceMap = new Map();
   const tx = db.transaction(() => {
+    // 1패스: 종목별 기본 확정가 계산
+    const computed = [];
     for (const s of stocks) {
       const { rate: eventRate, frozen } = activeEventRate(s.code, nowIso);
       if (frozen) continue;
@@ -131,13 +135,34 @@ function tick(intervalMs = 10000) {
       if (move > TICK_LIMIT) move = TICK_LIMIT;
       if (move < -TICK_LIMIT) move = -TICK_LIMIT;
       const next = Math.max(MIN_PRICE, Math.round(s.cur_price * (1 + move)));
-      priceMap.set(s.code, next);
-      if (next === s.cur_price) continue;
-      upd.run(next, s.code);
       const hasTrade = v.buyVol + v.sellVol > 0;
       const cause = hasTrade && eventRate !== 0 ? 'TRADE_EVENT' : hasTrade ? 'TRADE_NET' : eventRate !== 0 ? 'EVENT' : 'AUTO';
-      log.run(s.code, s.cur_price, next, cause);
-      checkKit(s, next); // 15% 킷 돌파 시 일시정지 발동
+      computed.push({ s, next, v, hasTrade, eventRate, cause });
+    }
+    // 2패스: 같은 태그 대장주의 이번 틱 등락을 일반주에 가볍게 반영 (시총 가중)
+    const leadMoves = new Map(); // tag -> [{move, mcap},...]
+    for (const c of computed) {
+      if (c.s.stock_type === 'bluechip' && c.s.tags && c.s.cur_price > 0) {
+        const m = (c.next - c.s.cur_price) / c.s.cur_price;
+        const mcap = c.s.cur_price * (c.s.listed_shares || 1000000);
+        if (!leadMoves.has(c.s.tags)) leadMoves.set(c.s.tags, []);
+        leadMoves.get(c.s.tags).push({ move: m, mcap });
+      }
+    }
+    for (const c of computed) {
+      let next = c.next;
+      if (c.s.stock_type !== 'bluechip' && c.s.tags && leadMoves.has(c.s.tags)) {
+        const arr = leadMoves.get(c.s.tags);
+        const tot = arr.reduce((a, b) => a + b.mcap, 0);
+        const wavg = tot > 0 ? arr.reduce((a, b) => a + b.move * b.mcap, 0) / tot : 0;
+        const pull = Math.max(-MAX_PULL, Math.min(MAX_PULL, wavg * LEADER_PULL));
+        next = Math.max(MIN_PRICE, Math.round(c.s.cur_price * (1 + (c.next - c.s.cur_price) / c.s.cur_price + pull)));
+      }
+      priceMap.set(c.s.code, next);
+      if (next === c.s.cur_price) continue;
+      upd.run(next, c.s.code);
+      log.run(c.s.code, c.s.cur_price, next, c.cause);
+      checkKit(c.s, next); // 15% 킷 돌파 시 일시정지 발동
     }
     // 만료된 예약 이벤트 자동 종료 (원복 없음, 로그만)
     db.prepare(

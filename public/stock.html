@@ -34,7 +34,7 @@
       <p id="cbLine" style="font-size:12.5px;font-weight:800;margin-top:4px"></p>
       <p id="divLine" style="font-size:12.5px;color:var(--muted);margin-top:4px"></p>
       <div class="ticker" id="ticker"></div>
-      <p style="font-size:11.5px;color:var(--muted);margin-top:8px">전일종가·52주선은 기록 범위 내 추정치, 시가총액은 가상 발행 100만주 가정</p>
+      <p style="font-size:11.5px;color:var(--muted);margin-top:8px">전일종가·52주선은 기록 범위 내 추정치, 시가총액 = 현재가 × 상장주식수</p>
       <p style="font-size:12.5px;color:var(--muted);margin-top:4px" id="hold">보유 확인 중...</p>
       <p style="font-size:12.5px;color:var(--muted)" id="cashLine">주식 살 수 있는 돈 확인 중...</p>
     </div>
@@ -274,7 +274,7 @@ function renderHead() {
   document.getElementById('ticker').innerHTML =
     cell('전일종가(기록 시작가)', fmt(prev)) + cell('당일시가', fmt(base)) + cell('고가', fmt(hi), UP) + cell('저가', fmt(lo), DOWN) +
     cell('거래량(가상 포함)', (chartVol ? chartVol.toLocaleString() + '주' : '-') + `<br><small style="color:var(--muted)">실체결 ${tv.toLocaleString()}주</small>`) + cell('거래대금(가상 포함)', chartAmt ? (chartAmt / 1e8).toFixed(2) + '억원' : '-') +
-    cell('52주 최고(기록내)', fmt(wHigh)) + cell('시가총액(가상)', (cur.cur_price * VIRTUAL_SHARES / 1e8).toFixed(1) + '억원');
+    cell('52주 최고(기록내)', fmt(wHigh)) + cell('시가총액', ((cur.cur_price * (cur.listed_shares || 1000000)) / 1e8).toFixed(1) + '억원');
   const obm = document.getElementById('obMeta');
   if (obm) obm.dataset.strength = strength.toFixed(0);
 }
