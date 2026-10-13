@@ -221,3 +221,8 @@ CREATE TABLE IF NOT EXISTS gambles (
   win INTEGER NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
 );
+
+-- 조회 인덱스 (시세 이력 누적 대비: 5초 폴링 full-scan 방지)
+CREATE INDEX IF NOT EXISTS idx_price_logs_code_id ON price_logs(stock_code, id DESC);
+CREATE INDEX IF NOT EXISTS idx_transactions_code ON transactions(stock_code, id DESC);
+CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id, id DESC);

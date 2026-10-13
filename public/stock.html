@@ -387,6 +387,21 @@ document.getElementById('liveBtn').onclick = () => { stickRight = true; scrollEn
 (function bindChartScroll() {
   const sc = document.getElementById('chartScroll');
   sc.addEventListener('scroll', () => { stickRight = sc.scrollWidth - sc.scrollLeft - sc.clientWidth < 30; });
+  // 차트 위 드래그로도 스크롤 (마우스; 터치는 네이티브 스크롤)
+  const cv = document.getElementById('candle');
+  let sx = null, sl = 0;
+  cv.addEventListener('pointerdown', (e) => {
+    sx = e.clientX; sl = sc.scrollLeft;
+    if (e.pointerType === 'mouse') { try { cv.setPointerCapture(e.pointerId); } catch (err) {} cv.style.cursor = 'grabbing'; }
+  });
+  cv.addEventListener('pointermove', (e) => {
+    if (sx == null || e.pointerType !== 'mouse') return;
+    if (Math.abs(sx - e.clientX) < 4) return;
+    sc.scrollLeft = sl - (e.clientX - sx);
+  });
+  const up = () => { sx = null; cv.style.cursor = ''; };
+  cv.addEventListener('pointerup', up);
+  cv.addEventListener('pointercancel', up);
 })();
 document.querySelectorAll('#infoTabs button').forEach(b => b.onclick = () => {
   document.querySelectorAll('#infoTabs button').forEach(x => x.classList.remove('on'));
