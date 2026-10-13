@@ -184,6 +184,29 @@ router.delete('/indices/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+// GET /api/admin/volumes (실거래량: 가상 제외, 실제 체결 기준 종목별·사용자별)
+router.get('/volumes', (req, res) => {
+  const byStock = db.prepare(
+    `SELECT t.stock_code AS code, s.name,
+       COALESCE(SUM(CASE WHEN t.side = 'BUY' THEN t.qty ELSE 0 END), 0) AS buy_vol,
+       COALESCE(SUM(CASE WHEN t.side = 'SELL' THEN t.qty ELSE 0 END), 0) AS sell_vol,
+       COUNT(*) AS trades,
+       COALESCE(SUM(t.qty * t.price), 0) AS turnover
+     FROM transactions t LEFT JOIN stocks s ON s.code = t.stock_code
+     GROUP BY t.stock_code ORDER BY turnover DESC`
+  ).all();
+  const byUser = db.prepare(
+    `SELECT t.user_id AS id, u.nickname, u.status,
+       COALESCE(SUM(CASE WHEN t.side = 'BUY' THEN t.qty ELSE 0 END), 0) AS buy_vol,
+       COALESCE(SUM(CASE WHEN t.side = 'SELL' THEN t.qty ELSE 0 END), 0) AS sell_vol,
+       COUNT(*) AS trades,
+       COALESCE(SUM(t.qty * t.price), 0) AS turnover
+     FROM transactions t LEFT JOIN users u ON u.id = t.user_id
+     GROUP BY t.user_id ORDER BY turnover DESC LIMIT 100`
+  ).all().map((r) => ({ ...r, nickname: r.status === '탈퇴' ? '탈퇴회원' : (r.nickname || '알수없음') }));
+  res.json({ byStock, byUser });
+});
+
 // POST /api/admin/posts/:id/blind | unblind
 router.post('/posts/:id/blind', (req, res) => {
   const p = db.prepare('SELECT * FROM posts WHERE id = ?').get(req.params.id);

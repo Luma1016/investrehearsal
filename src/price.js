@@ -5,9 +5,10 @@ const { isHalted, isPaused, dayOpen, recordKitHit, consumedLevel, KIT_STEP, KIT_
 // 거래량 연동형 가상시세 (실제 시장 유사):
 //   imbalance = (buyVol - sellVol) / totalVol  (-1 ~ +1, 주문흐름 불균형)
 //   magnitude = min(1, totalVol / LIQ_BASE)    (유동성 대비 체결강도)
-//   tradeImpact = imbalance * magnitude * MAX_TRADE_MOVE  (최대 ±3%/tick)
-//   noise = rand(-0.005 ~ +0.005)             (호가 틱/마켓메이커 호가, 거래 없을 때도 미세 변동)
-//   next = cur * (1 + tradeImpact + noise + event_rate), tick당 ±10% 클램프(서킷브레이커 유사)
+//   tradeImpact = imbalance * magnitude * MAX_TRADE_MOVE  (최대 ±3%/분)
+//   noise = 매틱 ±0.5%/√N                     (호가 틱, N=분당 틱 수로 스케일)
+//   next = cur * (1 + tradeImpact + noise + event_rate), 틱당 ±10% 클램프(서킷브레이커 유사)
+// 틱 간격이 바뀌어도 분당 변동성이 유지되도록 SCALE 보정 (10초틱: 드리프트항 ×1/6, 노이즈 ×1/√6)
 const LIQ_BASE = 500;
 const MAX_TRADE_MOVE = 0.03;
 const NOISE_RANGE = 0.005;
@@ -55,16 +56,16 @@ function calcTradeImpact(buyVol, sellVol) {
   return { tradeImpact: imbalance * magnitude * MAX_TRADE_MOVE, imbalance, total };
 }
 
-function tick(intervalMs = 60000) {
+function tick(intervalMs = 10000) {
   const now = new Date();
   const nowIso = now.toISOString().slice(0, 19).replace('T', ' ');
-  const windowSec = Math.max(10, Math.round(intervalMs / 1000));
+  const SCALE = intervalMs / 60000; // 분당 틱 수 보정 (10초 → 1/6)
   const stocks = db.prepare("SELECT code, name, cur_price, stock_type FROM stocks WHERE status != '정지'").all();
   const upd = db.prepare("UPDATE stocks SET cur_price = ?, updated_at = datetime('now','localtime') WHERE code = ?");
   const log = db.prepare(
     'INSERT INTO price_logs (stock_code, prev, next, cause) VALUES (?,?,?,?)'
   );
-  const volumes = recentVolumes(windowSec);
+  const volumes = recentVolumes(60); // 최근 60초 체결 압력 (틱 간격과 무관하게 고정)
   const priceMap = new Map();
   const tx = db.transaction(() => {
     for (const s of stocks) {
@@ -75,12 +76,14 @@ function tick(intervalMs = 60000) {
       const isBlue = s.stock_type === 'bluechip';
       const v = volumes.get(s.code) || { buyVol: 0, sellVol: 0 };
       const { tradeImpact } = calcTradeImpact(v.buyVol, v.sellVol);
-      // 대장주는 거래영향 ±1% 캡
-      const ti = isBlue ? Math.max(-0.01, Math.min(0.01, tradeImpact)) : tradeImpact;
-      // 대장주는 노이즈 ±0.2%
-      const nr = isBlue ? 0.002 : NOISE_RANGE;
+      // 대장주는 거래영향 ±1%/분 캡 (일반 ±3%/분), 틱당 SCALE 분할
+      const capPerMin = isBlue ? 0.01 : MAX_TRADE_MOVE;
+      const ti = Math.max(-capPerMin, Math.min(capPerMin, tradeImpact)) * SCALE;
+      // 노이즈: 분당 동일 변동성 유지 (일반 ±0.5%/분, 대장주 ±0.2%/분)
+      const nrPerMin = isBlue ? 0.002 : NOISE_RANGE;
+      const nr = nrPerMin * Math.sqrt(SCALE);
       const noise = Math.random() * (nr * 2) - nr;
-      let move = ti + noise + eventRate;
+      let move = ti + noise + eventRate * SCALE;
       if (move > TICK_LIMIT) move = TICK_LIMIT;
       if (move < -TICK_LIMIT) move = -TICK_LIMIT;
       const next = Math.max(MIN_PRICE, Math.round(s.cur_price * (1 + move)));
@@ -145,7 +148,7 @@ function settleReservations(priceMap) {
   }
 }
 
-function startPriceLoop(intervalMs = 60000) {
+function startPriceLoop(intervalMs = 10000) {
   const t = setInterval(() => {
     try {
       tick(intervalMs);

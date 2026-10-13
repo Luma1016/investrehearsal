@@ -37,6 +37,7 @@
         <button data-t="t3">유저정지</button>
         <button data-t="t4">종목관리</button>
         <button data-t="t5">지수관리</button>
+        <button data-t="t6">실거래량</button>
       </div>
       <div id="t1" style="margin-top:12px">
         <h2>이벤트 생성 (즉시/예약)</h2>
@@ -49,7 +50,7 @@
         <h2 style="margin-top:16px">조작로그</h2>
         <table><tr><th>종목</th><th>이전</th><th>이후</th><th>사유</th><th>일시</th></tr><tbody id="logRows"></tbody></table>
         <button class="btn" id="logReset" style="margin-top:10px">과거 시세 기록 초기화 (되돌릴 수 없음)</button>
-        <p style="font-size:11.5px;color:var(--muted);margin-top:6px">종목별 현재가 1건만 남기고 전체 삭제 · 보유·거래·자산 기록은 유지 · 이후 1분마다 새 기록 누적</p>
+        <p style="font-size:11.5px;color:var(--muted);margin-top:6px">종목별 현재가 1건만 남기고 전체 삭제 · 보유·거래·자산 기록은 유지 · 이후 10초마다 새 기록 누적</p>
         <h2 style="margin-top:16px">랜덤 뉴스 (5~60분 자동 + 수동 발생)</h2>
         <button class="btn" id="newsBtn">뉴스 1건 즉시 발생</button>
         <h2 style="margin-top:16px">테마 이벤트 직접 발생 (같은 태그 동시 변동)</h2>
@@ -82,6 +83,13 @@
         <table><tr><th>ID</th><th>이름</th><th>범위</th><th>기준값</th><th></th></tr><tbody id="xRows"></tbody></table>
         <p style="font-size:11.5px;color:var(--muted);margin-top:6px">지수값 = 기준값 × (1 + 편입종목 당일 평균등락률) · 정지 종목 제외 · 30초마다 재계산</p>
       </div>
+      <div id="t6" style="margin-top:12px;display:none">
+        <h2>실거래량 (가상 제외 · 실제 체결만)</h2>
+        <h3 style="font-size:13px;margin-top:12px">종목별</h3>
+        <div style="max-height:220px;overflow:auto"><table><tr><th>종목</th><th>매수</th><th>매도</th><th>건수</th><th>거래대금</th></tr><tbody id="vStock"></tbody></table></div>
+        <h3 style="font-size:13px;margin-top:12px">사용자별</h3>
+        <div style="max-height:220px;overflow:auto"><table><tr><th>사용자</th><th>매수</th><th>매도</th><th>건수</th><th>거래대금</th></tr><tbody id="vUser"></tbody></table></div>
+      </div>
     </div>
   </main>
   <div class="rail"><div class="mini"><h3>안내</h3><p style="font-size:12.5px;color:var(--muted)">조작·이벤트 생성 시 종목 공시 자동 발행 · ADMIN만 접근</p></div></div>
@@ -98,7 +106,7 @@
 document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
   document.querySelectorAll('.tabs button').forEach(x => x.classList.remove('on'));
   b.classList.add('on');
-  ['t1', 't2', 't3', 't4', 't5'].forEach(t => document.getElementById(t).style.display = t === b.dataset.t ? '' : 'none');
+  ['t1', 't2', 't3', 't4', 't5', 't6'].forEach(t => document.getElementById(t).style.display = t === b.dataset.t ? '' : 'none');
 });
 async function loadAll() {
   const s = await api('/api/admin/summary');
@@ -164,6 +172,9 @@ async function loadAll() {
     if (!confirm('이 지수를 삭제할까요? 대시보드 위젯에서도 사라집니다.')) return;
     await api(`/api/admin/indices/${b.dataset.xdel}`, 'DELETE'); toast('삭제됨'); loadAll();
   });
+  const vs = await api('/api/admin/volumes');
+  document.getElementById('vStock').innerHTML = vs.byStock.map(r => `<tr><td><b>${r.name || r.code}</b> <span style="color:var(--muted);font-size:12px">${r.code}</span></td><td>${Number(r.buy_vol).toLocaleString()}주</td><td>${Number(r.sell_vol).toLocaleString()}주</td><td>${r.trades}건</td><td>${(Number(r.turnover) / 1e8).toFixed(2)}억원</td></tr>`).join('') || '<tr><td colspan=5 style="color:var(--muted)">실체결 없음</td></tr>';
+  document.getElementById('vUser').innerHTML = vs.byUser.map(r => `<tr><td>${r.nickname} <span style="color:var(--muted);font-size:12px">#${r.id}</span></td><td>${Number(r.buy_vol).toLocaleString()}주</td><td>${Number(r.sell_vol).toLocaleString()}주</td><td>${r.trades}건</td><td>${(Number(r.turnover) / 1e8).toFixed(2)}억원</td></tr>`).join('') || '<tr><td colspan=5 style="color:var(--muted)">실체결 없음</td></tr>';
 }
 document.getElementById('eBtn').onclick = async () => {
   try { await api('/api/admin/events', 'POST', { code: document.getElementById('eCode').value.trim(), type: document.getElementById('eType').value.trim(), rate: Number(document.getElementById('eRate').value), reason: document.getElementById('eReason').value }); loadAll(); }

@@ -48,7 +48,7 @@ app.use('/api/indices', indicesRouter);
 app.use('/api/challenges', challengeRouter);
 app.use('/api', portfolioRouter);
 app.use('/api/admin', adminRouter);
-startPriceLoop();
+startPriceLoop(10000); // 10초 틱: 형성 중 봉이 실시간으로 움직임 (분당 변동성은 1분틱과 동일하게 스케일)
 startNewsLoop(); // 랜덤 뉴스: 5~60분마다 자동 이벤트+속보 공시 (무유저에도 동작)
 
 // 정적 서빙 (public/*.html)

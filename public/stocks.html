@@ -23,9 +23,10 @@
   </aside>
   <main class="main">
     <div class="panel">
-      <h2>종목 탐색 · 가상시세 (1분 갱신)</h2>
+      <h2>종목 탐색 · 가상시세 (10초 갱신)</h2>
       <div id="flash" style="margin-top:8px"></div>
       <div class="search"><input id="q" placeholder="종목명 또는 코드 검색"><button class="follow-btn" id="btn">검색</button></div>
+      <div class="period" id="sortBar" style="margin-top:8px;flex-wrap:wrap"><button class="on" data-s="code">기본순</button><button data-s="vol">거래량순</button><button data-s="turnover">거래대금순</button><button data-s="up">급상승순</button><button data-s="down">급하락순</button><button data-s="hot">인기순</button></div>
       <table><tr><th>종목</th><th>현재가</th><th>그래프</th><th>상태</th><th></th></tr><tbody id="rows"></tbody></table>
     </div>
   </main>
@@ -35,6 +36,20 @@
 <script>
 const rows = document.getElementById('rows');
 const UP = '#F04452', DOWN = '#3182F6';
+let sortKey = 'code';
+document.querySelectorAll('#sortBar button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#sortBar button').forEach(x => x.classList.remove('on'));
+  b.classList.add('on'); sortKey = b.dataset.s; load();
+});
+function sorted(list) {
+  const a = [...list];
+  if (sortKey === 'vol') a.sort((x, y) => (y.dvol || 0) - (x.dvol || 0));
+  else if (sortKey === 'turnover') a.sort((x, y) => (y.turnover || 0) - (x.turnover || 0));
+  else if (sortKey === 'up') a.sort((x, y) => (y.day_rate || 0) - (x.day_rate || 0));
+  else if (sortKey === 'down') a.sort((x, y) => (x.day_rate || 0) - (y.day_rate || 0));
+  else if (sortKey === 'hot') a.sort((x, y) => (y.vol || 0) - (x.vol || 0));
+  return a;
+}
 function sparkline(cv, prices, up) {
   const ctx = cv.getContext('2d'), W = cv.width, H = cv.height;
   ctx.clearRect(0, 0, W, H);
@@ -51,7 +66,7 @@ function sparkline(cv, prices, up) {
 }
 async function load() {
   const q = document.getElementById('q').value.trim();
-  const list = await api('/api/stocks' + (q ? '?q=' + encodeURIComponent(q) : ''));
+  const list = sorted(await api('/api/stocks' + (q ? '?q=' + encodeURIComponent(q) : '')));
   rows.innerHTML = list.map(s => {
     const up = (s.day_rate || 0) >= 0, col = up ? UP : DOWN;
     const r = (s.day_rate * 100);

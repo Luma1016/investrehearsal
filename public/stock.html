@@ -38,11 +38,13 @@
     <div class="panel">
       <div style="display:flex;align-items:center"><h2>캔들차트 + 거래량</h2><div class="period" id="bucket" style="margin:0 0 0 auto"><button data-b="60">1분</button><button class="on" data-b="300">5분</button><button data-b="86400">1일</button></div></div>
       <div style="display:flex;gap:6px;margin-top:8px">
-        <button class="follow-btn" id="prevBtn">◀ 이전</button>
-        <button class="follow-btn" id="nextBtn">다음 ▶</button>
         <button class="follow-btn" id="liveBtn">최신으로</button>
+        <span style="font-size:11.5px;color:var(--muted);font-weight:700;align-self:center">좌우로 밀어 과거 확인</span>
       </div>
-      <canvas id="candle" width="700" height="260" style="cursor:grab;touch-action:none"></canvas>
+      <div style="display:flex;margin-top:8px">
+        <div id="chartScroll" style="overflow-x:auto;flex:1"><canvas id="candle" width="700" height="260"></canvas></div>
+        <canvas id="yaxis" width="56" height="260" style="flex:none"></canvas>
+      </div>
       <p style="font-size:12px;color:var(--muted)" id="range"></p>
     </div>
     <div class="panel">
@@ -96,15 +98,11 @@ const code = new URLSearchParams(location.search).get('code');
 if (!code) location.href = '/stocks.html';
 let cur = null, myCash = 0, myQty = 0, myAvg = null, allPts = [], trades = [], candles = [];
 let bucketSec = 300, sheetSide = 'buy', sheetMode = 'qty';
-// 차트 보기 창: 최대 50봉 표시, viewEnd>0이면 과거로 스크롤 (드래그·버튼)
-let viewN = 50, viewEnd = 0;
-function viewSlice() {
-  const end = candles.length - viewEnd;
-  return candles.slice(Math.max(0, end - viewN), end);
-}
-// 실시간 캔들 기준가: 마지막 서버 확정가(anchor) + 화면 표시용 라이브가(live)
-let anchorPrice = null, livePrice = null;
-const MICRO_RANGE = 0.0015, MEAN_REVERT = 0.3, MICRO_CAP = 0.005;
+// 차트 스크롤 모델: 봉당 14px 고정, 캔버스가 내용만큼 넓어지고 가로 스크롤바로 이동
+const SLOT = 14;
+let stickRight = true; // 끝에 붙어 있으면 새 봉이 와도 따라감, 과거 보는 중이면 위치 유지
+function scrollEnd() { const sc = document.getElementById('chartScroll'); if (sc) sc.scrollLeft = sc.scrollWidth; }
+// 실시간 기준가는 서버 확정가만 사용 (가짜 틱 없음: 봉은 서버 1분 틱 단위로만 갱신)
 const UP = '#F04452', DOWN = '#3182F6';
 const VIRTUAL_SHARES = 1000000;
 function ttoast(m) { const t = document.getElementById('ttoast'); t.textContent = m; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2200); }
@@ -145,16 +143,17 @@ function buildCandles() {
     const virt = Math.round(baseVol * (0.5 + r) * (1 + Math.min(3, rangePct * 80)));
     return { t: k * 1000, o, h: Math.max(...ps), l: Math.min(...ps), c, v: bv + sv + virt };
   });
-  if (viewEnd > Math.max(0, candles.length - 1)) viewEnd = Math.max(0, candles.length - 1);
 }
 function draw() {
   const cv = document.getElementById('candle'), ctx = cv.getContext('2d');
-  ctx.clearRect(0, 0, 700, 260);
-  const view = viewSlice();
-  if (view.length < 1) { ctx.fillStyle = '#B0B8C1'; ctx.font = '13px sans-serif'; ctx.fillText('시세 누적 중 (1분마다 기록)', 10, 100); return; }
+  const n = candles.length;
+  const W = Math.max(700, 52 + n * SLOT);
+  if (cv.width !== W) cv.width = W;
+  ctx.clearRect(0, 0, W, 260);
+  if (n < 1) { ctx.fillStyle = '#B0B8C1'; ctx.font = '13px sans-serif'; ctx.fillText('시세 누적 중 (10초마다 기록)', 10, 100); return; }
   const PH = 170, VH = 60, PT = 8, VT = 192;
   let hi = -Infinity, lo = Infinity, vmax = 0;
-  for (const c of view) { hi = Math.max(hi, c.h); lo = Math.min(lo, c.l); vmax = Math.max(vmax, c.v); }
+  for (const c of candles) { hi = Math.max(hi, c.h); lo = Math.min(lo, c.l); vmax = Math.max(vmax, c.v); }
   // Y축 여백: 봉이 위아래에 붙어 납작해지지 않도록 상하 15% + 최소 0.4% 보장
   const rawRg = (hi - lo) || 1;
   const pad = Math.max(rawRg * 0.15, hi * 0.002);
@@ -162,10 +161,10 @@ function draw() {
   const rg = hi - lo;
   const Y = (p) => PT + (1 - (p - lo) / rg) * PH;
   ctx.strokeStyle = '#EEF0F3'; ctx.lineWidth = 1;
-  for (let g = 0; g < 4; g++) { const y = PT + PH * g / 3; ctx.beginPath(); ctx.moveTo(52, y); ctx.lineTo(700, y); ctx.stroke(); }
-  // 봉 굵게 + 간격 좁게: 슬롯의 85% 사용
-  const n = view.length, slot = (700 - 52) / n, bw = Math.max(4, Math.min(22, slot * 0.85));
-  view.forEach((c, i) => {
+  for (let g = 0; g < 4; g++) { const y = PT + PH * g / 3; ctx.beginPath(); ctx.moveTo(52, y); ctx.lineTo(W, y); ctx.stroke(); }
+  // 봉 굵게 + 간격 좁게: 고정 14px 슬롯의 92% 사용 (옆에 붙는 형태)
+  const slot = SLOT, bw = Math.max(4, Math.min(22, slot * 0.92));
+  candles.forEach((c, i) => {
     const x = 52 + slot * i + slot / 2, col = c.c >= c.o ? UP : DOWN;
     ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1.5;
     // 꼬리: 고가-저가 수직선 (봉에 점이 1개뿐이어도 최소 표시)
@@ -180,34 +179,37 @@ function draw() {
     ctx.fillRect(x - bw / 2, top, bw, bh);
     if (vmax > 0) { const vh = Math.max(1, c.v / vmax * VH); ctx.globalAlpha = 0.75; ctx.fillRect(x - bw / 2, VT + VH - vh, bw, vh); ctx.globalAlpha = 1; }
   });
-  const last = view[view.length - 1].c;
+  const last = candles[candles.length - 1].c;
   ctx.setLineDash([5, 4]); ctx.strokeStyle = '#8B95A1';
-  ctx.beginPath(); ctx.moveTo(52, Y(last)); ctx.lineTo(700, Y(last)); ctx.stroke(); ctx.setLineDash([]);
-  ctx.fillStyle = '#191F28'; ctx.font = 'bold 11px sans-serif';
-  ctx.fillText(lo.toLocaleString(), 2, Y(lo)); ctx.fillText(hi.toLocaleString(), 2, Y(hi));
+  ctx.beginPath(); ctx.moveTo(52, Y(last)); ctx.lineTo(W, Y(last)); ctx.stroke(); ctx.setLineDash([]);
   ctx.fillStyle = '#8B95A1';
   const daily = bucketSec >= 86400;
   for (let g = 0; g < 4; g++) { const c = candles[Math.floor((n - 1) * g / 3)]; if (c) ctx.fillText(fmtT(c.t, daily), 52 + slot * Math.floor((n - 1) * g / 3), 258); }
-  const first = view[0], chg = (last - first.o) / first.o * 100;
-  document.getElementById('range').textContent = `보기 ${n}봉${viewEnd > 0 ? ` (과거 ${viewEnd}봉 전)` : ''} · 전체 ${candles.length}봉 · 고 ${fmt(hi)} · 저 ${fmt(lo)} · 첫봉 시가 대비 ${chg >= 0 ? '+' : ''}${chg.toFixed(2)}% · 거래량 막대는 실제+가상`;
+  const first = candles[0], chg = (last - first.o) / first.o * 100;
+  document.getElementById('range').textContent = `전체 ${n}봉 · 고 ${fmt(hi)} · 저 ${fmt(lo)} · 첫봉 시가 대비 ${chg >= 0 ? '+' : ''}${chg.toFixed(2)}% · 거래량 막대는 실제+가상`;
+  drawAxis(Y, hi, lo, rg, last);
+  if (stickRight) scrollEnd();
 }
-// 실시간 캔들 갱신: 진행 중 봉은 시가 유지·고/저/종가만 갱신, 주기 경계면 새 봉 push.
-// 직접 그린 canvas라 draw()+renderHead() 재호출이 chart.update() 역할을 함.
-function updateLiveCandle(price, atMs) {
-  if (!candles.length || !Number.isFinite(price)) return;
-  const b = Math.floor((atMs || Date.now()) / 1000 / bucketSec) * bucketSec;
-  const last = candles[candles.length - 1];
-  if (Math.floor(last.t / 1000) === b) {
-    last.h = Math.max(last.h, price);
-    last.l = Math.min(last.l, price);
-    last.c = price;
-  } else {
-    candles.push({ t: b * 1000, o: price, h: price, l: price, c: price, v: 0 });
-    if (candles.length > 200) candles.shift();
+// 우측 고정 Y축: 가격을 따라다니는 눈금 + 현재가 pill (스크롤과 무관하게 고정)
+function drawAxis(Y, hi, lo, rg, last) {
+  const ax = document.getElementById('yaxis');
+  if (!ax) return;
+  const a = ax.getContext('2d');
+  a.clearRect(0, 0, 56, 260);
+  a.font = '10px sans-serif'; a.fillStyle = '#8B95A1'; a.textAlign = 'left';
+  for (let g = 0; g < 4; g++) {
+    const pv = hi - rg * g / 3;
+    a.fillText(Math.round(pv).toLocaleString(), 4, Y(pv) + 3);
   }
-  livePrice = price;
-  draw();
-  renderHead();
+  const col = (cur && last >= dayBase()) ? UP : DOWN;
+  const y = Math.max(12, Math.min(238, Y(last)));
+  a.fillStyle = col;
+  a.beginPath();
+  if (a.roundRect) a.roundRect(2, y - 9, 52, 18, 9);
+  else a.rect(2, y - 9, 52, 18);
+  a.fill();
+  a.fillStyle = '#fff'; a.font = 'bold 10px sans-serif';
+  a.fillText(last.toLocaleString(), 6, y + 3.5);
 }
 function dayBase() {
   // 당일 기준가: API day_open 우선, 없으면 당일 첫 포인트, 그것도 없으면 전체 첫 포인트
@@ -261,10 +263,13 @@ function renderHead() {
   for (const t of trades) { tv += t.qty; tamt += t.qty * t.price; if (t.side === 'BUY') tbv += t.qty; else tsv += t.qty; }
   const prev = allPts.length ? allPts[0].price : cur.cur_price;
   const strength = tsv > 0 ? (tbv / tsv * 100) : 100;
+  // 차트 기준 거래량 = 실체결 + 가상 (봉 막대와 일치), 실체결 내역은 하단 테이프·거래내역에서 확인
+  let chartVol = 0, chartAmt = 0;
+  for (const c of candles) { chartVol += c.v; chartAmt += c.v * c.c; }
   const cell = (k, v, col) => `<div class="cell"><span>${k}</span><b${col ? ` style="color:${col}"` : ''}>${v}</b></div>`;
   document.getElementById('ticker').innerHTML =
     cell('전일종가(기록 시작가)', fmt(prev)) + cell('당일시가', fmt(base)) + cell('고가', fmt(hi), UP) + cell('저가', fmt(lo), DOWN) +
-    cell('거래량', tv ? tv.toLocaleString() + '주' : '체결 없음') + cell('거래대금', tamt ? (tamt / 1e8).toFixed(2) + '억원' : '-') +
+    cell('거래량(가상 포함)', (chartVol ? chartVol.toLocaleString() + '주' : '-') + `<br><small style="color:var(--muted)">실체결 ${tv.toLocaleString()}주</small>`) + cell('거래대금(가상 포함)', chartAmt ? (chartAmt / 1e8).toFixed(2) + '억원' : '-') +
     cell('52주 최고(기록내)', fmt(wHigh)) + cell('시가총액(가상)', (cur.cur_price * VIRTUAL_SHARES / 1e8).toFixed(1) + '억원');
   const obm = document.getElementById('obMeta');
   if (obm) obm.dataset.strength = strength.toFixed(0);
@@ -356,13 +361,12 @@ async function load(flash) {
   cur = s; myQty = s.qty || 0; myAvg = s.avg_price;
   try { const pf = await api('/api/portfolio'); myCash = pf.cash; document.getElementById('cashLine').textContent = `주식 살 수 있는 돈 ${fmt(pf.cash)}`; } catch (e) {}
   document.getElementById('hold').innerHTML = s.isHolder ? `보유중 <span class="pill p-up">${s.qty}주 · 내가 산 평균 가격 ${fmt(s.avg_price)}</span>` : '아직 갖고 있지 않아요';
-  const h = await api(`/api/stocks/${encodeURIComponent(code)}/history?limit=200`);
+  const h = await api(`/api/stocks/${encodeURIComponent(code)}/history?limit=400`);
   allPts = h.points;
   const last = allPts[allPts.length - 1];
   if (last && last.price !== s.cur_price) allPts.push({ price: s.cur_price, at: new Date().toISOString() });
   try { const t = await api(`/api/stocks/${encodeURIComponent(code)}/trades?limit=200`); trades = t.trades; } catch (e) { trades = []; }
   buildCandles();
-  anchorPrice = s.cur_price; livePrice = s.cur_price; // 서버 확정가로 스냅백
   renderHead(); draw(); renderBook(flash || changed); renderTape();
   await renderPosts();
   await renderNews();
@@ -374,24 +378,11 @@ document.getElementById('watchBtn').onclick = () => {
   w = w.includes(code) ? w.filter(x => x !== code) : [...w, code];
   localStorage.setItem('watch', JSON.stringify(w)); paintWatch(); ttoast(w.includes(code) ? '관심 종목에 담았어요' : '관심을 해제했어요');
 };
-document.querySelectorAll('#bucket button').forEach(b => b.onclick = () => { document.querySelectorAll('#bucket button').forEach(x => x.classList.remove('on')); b.classList.add('on'); bucketSec = Number(b.dataset.b); viewEnd = 0; buildCandles(); if (cur) { anchorPrice = cur.cur_price; livePrice = cur.cur_price; } renderHead(); draw(); });
-// 좌우 스크롤: 버튼 + 드래그
-document.getElementById('prevBtn').onclick = () => { viewEnd = Math.min(Math.max(0, candles.length - 1), viewEnd + viewN); draw(); };
-document.getElementById('nextBtn').onclick = () => { viewEnd = Math.max(0, viewEnd - viewN); draw(); };
-document.getElementById('liveBtn').onclick = () => { viewEnd = 0; draw(); };
-(function bindScroll() {
-  const cv = document.getElementById('candle');
-  let sx = null, sEnd = 0;
-  cv.addEventListener('pointerdown', (e) => { sx = e.clientX; sEnd = viewEnd; cv.setPointerCapture(e.pointerId); });
-  cv.addEventListener('pointermove', (e) => {
-    if (sx == null) return;
-    if (Math.abs(sx - e.clientX) < 8) return;
-    viewEnd = Math.min(Math.max(0, candles.length - 1), Math.max(0, sEnd + Math.round((sx - e.clientX) / 12)));
-    draw();
-  });
-  const up = () => { sx = null; cv.style.cursor = 'grab'; };
-  cv.addEventListener('pointerup', up);
-  cv.addEventListener('pointercancel', up);
+document.querySelectorAll('#bucket button').forEach(b => b.onclick = () => { document.querySelectorAll('#bucket button').forEach(x => x.classList.remove('on')); b.classList.add('on'); bucketSec = Number(b.dataset.b); stickRight = true; buildCandles(); renderHead(); draw(); });
+document.getElementById('liveBtn').onclick = () => { stickRight = true; scrollEnd(); };
+(function bindChartScroll() {
+  const sc = document.getElementById('chartScroll');
+  sc.addEventListener('scroll', () => { stickRight = sc.scrollWidth - sc.scrollLeft - sc.clientWidth < 30; });
 })();
 document.querySelectorAll('#infoTabs button').forEach(b => b.onclick = () => {
   document.querySelectorAll('#infoTabs button').forEach(x => x.classList.remove('on'));
@@ -443,20 +434,9 @@ document.getElementById('writeBtn').onclick = async () => {
   } catch (e) { ttoast('작성 실패: ' + e.message); }
 };
 load(false);
-// 폴링(20초): 실제 서버 확정가를 진행 중 봉에 반영 + 전체 재동기화(스냅백)
-setInterval(() => { load(false); }, 20000);
-// 마이크로틱(2초): 폴링 사이 진행 중 봉의 고/저/종가만 미세 변동 → 차트가 살아 움직이게
-setInterval(() => {
-  if (!cur || !candles.length || anchorPrice == null || livePrice == null) return;
-  if (cur.status === '정지' || cur.halted || (cur.cb && (cur.cb.halted || cur.cb.paused))) return; // 정지·서킷 발동 종목은 화면 틱도 동결
-  const drift = (Math.random() - 0.5) * 2 * MICRO_RANGE * anchorPrice;
-  let np = Math.round(livePrice + drift + (anchorPrice - livePrice) * MEAN_REVERT);
-  const cap = anchorPrice * MICRO_CAP;
-  np = Math.max(100, Math.min(anchorPrice + cap, Math.max(anchorPrice - cap, np)));
-  if (np === livePrice) return;
-  updateLiveCandle(np);
-  paintPrice(np); // 당일 기준 색상 (틱 등락 아님)
-}, 2000);
+// 폴링(5초): 서버 10초 틱이 찍히면 곧바로 반영. 진행 중 봉의 종가·고저가 실시간으로 움직임
+// 봉 확정은 버킷 경계(1분·5분·1일) 기준 — 5분봉은 5분치 변동을 묶고 5분 뒤 다음 봉
+setInterval(() => { load(false); }, 5000);
 </script>
 </body>
 </html>

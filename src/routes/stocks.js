@@ -10,21 +10,55 @@ function withDay(s) {
   return { ...s, day_open: open, day_rate: open ? (s.cur_price - open) / open : 0, halted: cb ? cb.halted : false, paused: cb ? cb.paused : false };
 }
 
-// GET /api/stocks?q= 목록 (태그·당일등락 포함)
+// 표시용 거래량 = 실체결 + 가상 (상세 차트 막대와 같은 공식: 5분 버킷별 확정 난수)
+function displayVol(code, isBlue, realVol) {
+  const rows = db.prepare(
+    'SELECT next, created_at FROM price_logs WHERE stock_code = ? ORDER BY id DESC LIMIT 400'
+  ).all(code);
+  if (!rows.length) return realVol;
+  const B = 300;
+  const ts = (s) => new Date(String(s).replace(' ', 'T')).getTime();
+  const map = new Map();
+  for (const p of rows) {
+    const t = ts(p.created_at);
+    if (isNaN(t)) continue;
+    const b = Math.floor(t / 1000 / B) * B;
+    if (!map.has(b)) map.set(b, []);
+    map.get(b).push(p.next);
+  }
+  const baseVol = isBlue ? 1500 : 120;
+  let virt = 0;
+  for (const [b, ps] of map) {
+    const o = ps[ps.length - 1], c = ps[0];
+    const r = Math.abs(Math.sin(b * 12.9898) * 43758.5453) % 1;
+    const rangePct = o ? Math.abs(c - o) / o : 0;
+    virt += Math.round(baseVol * (0.5 + r) * (1 + Math.min(3, rangePct * 80)));
+  }
+  return realVol + virt;
+}
+
+// GET /api/stocks?q= 목록 (태그·당일등락·실거래량 포함)
 router.get('/', (req, res) => {
   const q = (req.query.q || '').trim();
+  const base = `SELECT s.code, s.name, s.cur_price, s.status, s.tags, s.stock_type, s.updated_at,
+      COALESCE(v.tv, 0) AS vol, COALESCE(v.tover, 0) AS turnover, COALESCE(v.tc, 0) AS trades
+    FROM stocks s LEFT JOIN (
+      SELECT stock_code, SUM(qty) AS tv, SUM(qty * price) AS tover, COUNT(*) AS tc
+      FROM transactions GROUP BY stock_code
+    ) v ON v.stock_code = s.code`;
   let rows;
   if (q) {
     rows = db.prepare(
-      `SELECT code, name, cur_price, status, tags, stock_type, updated_at FROM stocks
-       WHERE code LIKE ? OR name LIKE ? OR tags LIKE ? ORDER BY code`
+      `${base} WHERE s.code LIKE ? OR s.name LIKE ? OR s.tags LIKE ? ORDER BY s.code`
     ).all(`%${q}%`, `%${q}%`, `%${q}%`);
   } else {
-    rows = db.prepare(
-      'SELECT code, name, cur_price, status, tags, stock_type, updated_at FROM stocks ORDER BY code'
-    ).all();
+    rows = db.prepare(`${base} ORDER BY s.code`).all();
   }
-  res.json(rows.map(withDay));
+  res.json(rows.map((r) => {
+    const w = withDay(r);
+    w.dvol = displayVol(r.code, r.stock_type === 'bluechip', r.vol || 0);
+    return w;
+  }));
 });
 
 // GET /api/stocks/:code/history?limit=60 (가격 그래프용, 최근 N 포인트)
@@ -33,7 +67,7 @@ router.get('/:code/history', (req, res) => {
   if (!s) return res.status(404).json({ error: 'NOT_FOUND' });
   let limit = Number(req.query.limit) || 60;
   if (limit < 2) limit = 2;
-  if (limit > 200) limit = 200;
+  if (limit > 600) limit = 600;
   const logs = db.prepare(
     'SELECT prev, next, created_at FROM price_logs WHERE stock_code = ? ORDER BY id DESC LIMIT ?'
   ).all(s.code, limit).reverse();
