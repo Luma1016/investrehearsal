@@ -6,7 +6,7 @@ services:
     name: invest-rehearsal-api
     runtime: node
     plan: free # 24시간 상시+영속DB는 starter 이상 권장
-    buildCommand: npm install
+    buildCommand: npm ci # node_modules 싹 지우고 재설치 → Node 버전 바뀔 때 better-sqlite3 네이티브 꼬임 방지
     startCommand: node src/server.js
     envVars:
       - key: NODE_VERSION
