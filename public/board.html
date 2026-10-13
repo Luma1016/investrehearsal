@@ -24,6 +24,11 @@
     </div>
   </aside>
   <main class="main">
+    <div class="panel"><h2>블록딜 장터 <span style="font-size:11.5px;color:var(--muted);font-weight:700">장외 직거래 · 시세 무영향 · 매도자 익명</span></h2>
+      <div class="search"><input id="bdCode" placeholder="종목코드" style="max-width:100px"><input id="bdQty" type="number" placeholder="수량" style="max-width:80px"><input id="bdPrice" type="number" placeholder="지정가" style="max-width:110px"><button class="follow-btn" id="bdBtn">매도 제안</button></div>
+      <div id="bdList" style="margin-top:8px"></div>
+      <p style="font-size:11.5px;color:var(--muted);margin-top:6px">보유 주식만 제안 가능 · 체결 시 지정가로 이전, 시장가·호가에 영향 없음</p>
+    </div>
     <div class="panel"><h2>엔젤펀드 <span style="font-size:11.5px;color:var(--muted);font-weight:700">파산 구제 기부</span></h2>
       <p style="font-size:13px;margin-top:8px">잔액 <b id="fdBal">-</b> · 총자산 100만원 미만이면 1일 50만원까지 지원</p>
       <div class="search"><input id="fdAmt" type="number" placeholder="기부 금액 (100원 이상)"><button class="follow-btn" id="fdDonate">기부하기</button><button class="follow-btn" id="fdClaim">기부 받기</button></div>
@@ -54,6 +59,28 @@ function card(p) {
   return `<div class="post" data-id="${p.id}" style="cursor:pointer"><b>${p.title}</b> ${p.isHolder ? '<span class="pill p-up">보유중</span>' : ''} ${badgeHtml(p)}<br><small>${p.nickname} · ${p.stock_code || '전체'} · 좋아요 ${p.likes} · 댓글 ${p.comment_cnt} · 조회 ${p.views}</small><br>${p.body.slice(0, 80)}</div>`;
 }
 function fundMsg(m) { document.getElementById('fdMsg').textContent = m; }
+async function loadBlocks() {
+  try {
+    const rs = await api('/api/block');
+    document.getElementById('bdList').innerHTML = rs.map(r => `<div class="post"><b>${r.name} ${r.qty}주</b> · ${r.price.toLocaleString()}원 <small>${String(r.created_at).slice(5, 16)}</small>${r.mine ? ` <button class="follow-btn" data-bdcancel="${r.id}">취소</button>` : ` <button class="follow-btn" data-bdaccept="${r.id}">받기</button>`}</div>`).join('') || '<p style="font-size:13px;color:var(--muted)">열린 제안이 없어요.</p>';
+    document.querySelectorAll('[data-bdaccept]').forEach(b => b.onclick = async () => {
+      if (!confirm('지정가로 인수할까요? 즉시 체결됩니다.')) return;
+      try { const r = await api(`/api/block/${b.dataset.bdaccept}/accept`, 'POST'); fundMsg(`블록딜 체결: ${r.qty}주 · ${fmt(r.price)}`); loadBlocks(); }
+      catch (e) { fundMsg('인수 실패: ' + e.message); }
+    });
+    document.querySelectorAll('[data-bdcancel]').forEach(b => b.onclick = async () => {
+      await api(`/api/block/${b.dataset.bdcancel}`, 'DELETE'); loadBlocks();
+    });
+  } catch (e) { /* 비로그인 무시 */ }
+}
+document.getElementById('bdBtn').onclick = async () => {
+  const code = document.getElementById('bdCode').value.trim().toUpperCase();
+  const qty = Math.floor(Number(document.getElementById('bdQty').value));
+  const price = Number(document.getElementById('bdPrice').value);
+  if (!code || !qty || !price) return fundMsg('종목·수량·지정가를 입력해 주세요');
+  try { await api('/api/block', 'POST', { code, qty, price }); fundMsg('매도 제안 등록됨'); loadBlocks(); }
+  catch (e) { fundMsg('제안 실패: ' + e.message); }
+};
 async function loadFund() {
   try {
     const f = await api('/api/fund');
@@ -92,6 +119,7 @@ document.getElementById('shuffle').onclick = shuffle;
 document.getElementById('logout').onclick = async (e) => { e.preventDefault(); await api('/api/auth/logout', 'POST'); location.href = '/login.html'; };
 load();
 loadFund();
+loadBlocks();
 </script>
 </body>
 </html>

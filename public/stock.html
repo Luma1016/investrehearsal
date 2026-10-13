@@ -99,7 +99,7 @@
 <script>
 const code = new URLSearchParams(location.search).get('code');
 if (!code) location.href = '/stocks.html';
-let cur = null, myCash = 0, myQty = 0, myAvg = null, allPts = [], trades = [], candles = [];
+let cur = null, myCash = 0, myQty = 0, myAvg = null, allPts = [], trades = [], candles = [], stockEvents = [];
 let bucketSec = 300, sheetSide = 'buy', sheetMode = 'qty';
 // 차트 스크롤 모델: 봉당 14px 고정, 캔버스가 내용만큼 넓어지고 가로 스크롤바로 이동
 const SLOT = 14;
@@ -109,8 +109,18 @@ function scrollEnd() { const sc = document.getElementById('chartScroll'); if (sc
 const UP = '#F04452', DOWN = '#3182F6';
 const VIRTUAL_SHARES = 1000000;
 function ttoast(m) { const t = document.getElementById('ttoast'); t.textContent = m; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2200); }
-function tradeErr(e) {
-  const m = String((e && e.message) || e);
+function bigWon(v, digits) {
+  v = Number(v) || 0;
+  const d = digits === undefined ? 1 : digits;
+  if (v >= 1e12) {
+    const jo = Math.floor(v / 1e12), eok = Math.floor((v % 1e12) / 1e8);
+    return eok > 0 ? `${jo}조 ${eok}억원` : `${jo}조원`;
+  }
+  if (v >= 1e8) return `${(v / 1e8).toFixed(d)}억원`;
+  if (v >= 1e4) return `${Math.round(v / 1e4).toLocaleString()}만원`;
+  return `${Math.round(v).toLocaleString()}원`;
+}
+function tradeErr(e) {  const m = String((e && e.message) || e);
   if (m.includes('CIRCUIT_HALT')) return '서킷브레이커 발동 — 오늘은 이 종목 거래할 수 없어요';
   if (m.includes('CIRCUIT_PAUSE')) return '서킷브레이커 일시정지 중 — 잠시 후 거래 재개돼요';
   if (m.includes('CASH_LACK')) return '예수금이 부족해요';
@@ -138,12 +148,19 @@ function buildCandles() {
     }
     const o = ps[0], c = ps[ps.length - 1];
     // 가상 거래량: 실체결이 없어도 막대가 보이도록. 버킷별 고정 난수(새로고침에 흔들리지 않음)
-    // + 변동이 클수록 + 대장주는 10배 이상
+    // + 변동이 클수록 + 대장주는 10배 이상 + 뉴스/이벤트 구간은 3배 폭증
     const isBlue = cur && cur.stock_type === 'bluechip';
     const baseVol = isBlue ? 1500 : 120;
     const r = Math.abs(Math.sin(k * 12.9898) * 43758.5453) % 1;
     const rangePct = o ? Math.abs(c - o) / o : 0;
-    const virt = Math.round(baseVol * (0.5 + r) * (1 + Math.min(3, rangePct * 80)));
+    let virt = Math.round(baseVol * (0.5 + r) * (1 + Math.min(3, rangePct * 80)));
+    const bMs = k * 1000;
+    for (const ev of stockEvents) {
+      if (ev.status !== '진행중' && ev.status !== '예약') continue;
+      const st = ev.start_at ? ts(ev.start_at) : -Infinity;
+      const en = ev.end_at ? ts(ev.end_at) : Infinity;
+      if (bMs >= st && bMs <= en) { virt = virt * 3; break; }
+    }
     return { t: k * 1000, o, h: Math.max(...ps), l: Math.min(...ps), c, v: bv + sv + virt };
   });
 }
@@ -233,7 +250,7 @@ function paintPrice(px) {
 }
 function renderHead() {
   if (!cur || !candles.length) return;
-  document.getElementById('title').textContent = cur.name + ' (' + cur.code + ')' + (cur.stock_type === 'bluechip' ? ' · 대장주' : '') + (cur.status === '정지' ? ' · 정지' : '');
+  document.getElementById('title').textContent = cur.name + ' (' + cur.code + ')' + (cur.stock_type === 'bluechip' ? ' · 대장주' : '') + (cur.status === '정지' ? ' · 정지' : '') + (cur.delist_type ? ` · ${cur.delist_type}` : '');
   paintPrice(cur.cur_price);
   const base = dayBase();
   const d = cur.cur_price - base, r = base ? d / base * 100 : 0;
@@ -276,8 +293,8 @@ function renderHead() {
   const cell = (k, v, col) => `<div class="cell"><span>${k}</span><b${col ? ` style="color:${col}"` : ''}>${v}</b></div>`;
   document.getElementById('ticker').innerHTML =
     cell('전일종가(기록 시작가)', fmt(prev)) + cell('당일시가', fmt(base)) + cell('고가', fmt(hi), UP) + cell('저가', fmt(lo), DOWN) +
-    cell('거래량(가상 포함)', (chartVol ? chartVol.toLocaleString() + '주' : '-') + `<br><small style="color:var(--muted)">실체결 ${tv.toLocaleString()}주</small>`) + cell('거래대금(가상 포함)', chartAmt ? (chartAmt / 1e8).toFixed(2) + '억원' : '-') +
-    cell('52주 최고(기록내)', fmt(wHigh)) + cell('시가총액', ((cur.cur_price * (cur.listed_shares || 1000000)) / 1e8).toFixed(1) + '억원');
+    cell('거래량(가상 포함)', (chartVol ? chartVol.toLocaleString() + '주' : '-') + `<br><small style="color:var(--muted)">실체결 ${tv.toLocaleString()}주</small>`) + cell('거래대금(가상 포함)', chartAmt ? bigWon(chartAmt, 2) : '-') +
+    cell('52주 최고(기록내)', fmt(wHigh)) + cell('시가총액', bigWon(cur.cur_price * (cur.listed_shares || 1000000)));
   const obm = document.getElementById('obMeta');
   if (obm) obm.dataset.strength = strength.toFixed(0);
 }
@@ -373,6 +390,7 @@ async function load(flash) {
   const last = allPts[allPts.length - 1];
   if (last && last.price !== s.cur_price) allPts.push({ price: s.cur_price, at: new Date().toISOString() });
   try { const t = await api(`/api/stocks/${encodeURIComponent(code)}/trades?limit=200`); trades = t.trades; } catch (e) { trades = []; }
+  try { const ev = await api(`/api/stocks/${encodeURIComponent(code)}/events`); stockEvents = ev || []; } catch (e) { stockEvents = []; }
   buildCandles();
   renderHead(); draw(); renderBook(flash || changed); renderTape();
   await renderPosts();

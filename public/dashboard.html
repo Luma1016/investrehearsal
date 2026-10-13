@@ -25,6 +25,7 @@
   </aside>
   <main class="main">
     <div id="idxStrip" style="display:flex;gap:10px;overflow-x:auto;margin-bottom:14px"></div>
+    <div class="panel"><h2>경제 캘린더 <span style="font-size:11.5px;color:var(--muted);font-weight:700">예고된 일정 · D-day</span></h2><div id="cal" style="margin-top:8px"></div></div>
     <div class="hero">
       <div class="label">내 자산</div>
       <div class="total" id="kTotal">-</div>
@@ -66,8 +67,23 @@ function coinRow(s, right1, right2, badge) {
   return `<div class="coin" data-c="${s.code}"><div class="logo-c">${ic}</div><div><div class="nm">${s.name}</div><div class="sub">${s.code} · ${right2 || ''}</div></div><div class="right"><div class="amt">${right1}</div>${badge || ''}</div></div>`;
 }
 let portfolio = null;
-async function loadIndices() {
+function dday(sched) {
+  const t = new Date(String(sched).replace(' ', 'T')).getTime();
+  if (isNaN(t)) return '';
+  const days = Math.ceil((t - Date.now()) / 86400000);
+  if (days < 0) return '진행됨';
+  if (days === 0) return 'D-DAY';
+  return `D-${days}`;
+}
+async function loadCal() {
   try {
+    const r = await api('/api/schedules');
+    const items = (r.upcoming || []).slice(0, 5).map(x => `<div class="tag"><span><b>[${x.kind}] ${x.title}</b><br><small style="color:var(--muted)">${String(x.scheduled_at).slice(0, 16)} · ${x.scope === '전체' ? '전 시장' : x.scope === '태그' ? '#' + x.tag : x.stock_code}</small></span><b style="color:#4F46E5">${dday(x.scheduled_at)}</b></div>`).join('');
+    const done = (r.recent || []).slice(0, 2).map(x => `<div class="tag"><span><b>${x.title}</b><br><small style="color:var(--muted)">발표됨</small></span></div>`).join('');
+    document.getElementById('cal').innerHTML = items + done || '<p style="font-size:13px;color:var(--muted)">예정된 일정이 없어요.</p>';
+  } catch (e) { /* 무시 */ }
+}
+async function loadIndices() {  try {
     const idx = await api('/api/indices');
     document.getElementById('idxStrip').innerHTML = idx.map(x => {
       const col = x.dir === 'up' ? '#F04452' : x.dir === 'down' ? '#3182F6' : '#8B95A1';
@@ -123,6 +139,7 @@ function bindCoins() { document.querySelectorAll('.coin').forEach(el => el.oncli
   document.querySelectorAll('#myPosts .post').forEach(el => el.onclick = () => location.href = '/post.html?id=' + el.dataset.id);
   await loadIndices();
   setInterval(loadIndices, 30000); // 30초마다 지수 갱신
+  await loadCal();
   try {
     const ch = await api('/api/challenges/weekly');
     document.getElementById('chTop').innerHTML = ch.board.slice(0, 3).map(x => {

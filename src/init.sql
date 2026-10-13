@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS stocks (
   stock_type TEXT NOT NULL DEFAULT 'normal' CHECK (stock_type IN ('normal','bluechip')),
   dividend INTEGER NOT NULL DEFAULT 0,
   listed_shares INTEGER NOT NULL DEFAULT 1000000,
+  delist_type TEXT,
+  delisted_at DATETIME,
   updated_at DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
 );
 
@@ -46,6 +48,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   qty INTEGER NOT NULL CHECK (qty >= 1),
   price INTEGER NOT NULL CHECK (price >= 1),
   pnl INTEGER,
+  via TEXT NOT NULL DEFAULT 'MARKET' CHECK (via IN ('MARKET','BLOCK')),
   created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
 );
 
@@ -213,6 +216,24 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT NOT NULL DEFAULT ''
 );
 
+-- 경제 캘린더: 사전 예고 일정 (거시/실적/공시) → 당일 자동 발표
+CREATE TABLE IF NOT EXISTS schedules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT '기타' CHECK (kind IN ('거시','실적','공시','기타')),
+  scope TEXT NOT NULL DEFAULT '전체' CHECK (scope IN ('전체','종목','태그')),
+  stock_code TEXT REFERENCES stocks(code),
+  tag TEXT NOT NULL DEFAULT '',
+  body TEXT NOT NULL DEFAULT '',
+  scheduled_at DATETIME NOT NULL,
+  status TEXT NOT NULL DEFAULT '예정' CHECK (status IN ('예정','발표','종료')),
+  effect TEXT NOT NULL DEFAULT '랜덤' CHECK (effect IN ('급등','급락','랜덤')),
+  magnitude REAL NOT NULL DEFAULT 0.08,
+  duration_min INTEGER NOT NULL DEFAULT 10,
+  executed_at DATETIME,
+  created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
 CREATE TABLE IF NOT EXISTS gambles (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -221,6 +242,20 @@ CREATE TABLE IF NOT EXISTS gambles (
   payout INTEGER NOT NULL DEFAULT 0,
   win INTEGER NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+-- 블록딜(장외 대량매매): 시장가 영향 없이 지정가로 보유 이전
+CREATE TABLE IF NOT EXISTS block_deals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  seller_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  buyer_id INTEGER REFERENCES users(id),
+  stock_code TEXT NOT NULL REFERENCES stocks(code),
+  qty INTEGER NOT NULL CHECK (qty >= 1),
+  price INTEGER NOT NULL CHECK (price >= 1),
+  status TEXT NOT NULL DEFAULT '제안' CHECK (status IN ('제안','체결','취소','만료')),
+  memo TEXT,
+  created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime')),
+  executed_at DATETIME
 );
 
 -- 조회 인덱스 (시세 이력 누적 대비: 5초 폴링 full-scan 방지)

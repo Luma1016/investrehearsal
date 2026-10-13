@@ -697,6 +697,148 @@ router.get('/gamble/stats', (req, res) => {
   res.json({ total, byUser, house_edge: total.bet ? Math.round((1 - total.payout / total.bet) * 1000) / 10 : 0 });
 });
 
+// GET /api/admin/market (상폐 기준가 조회)
+router.get('/market', (req, res) => {
+  const { delistThreshold } = require('../price');
+  res.json({ delist_price: delistThreshold() });
+});
+
+// PUT /api/admin/market {delist_price} (상폐 기준가 수정)
+router.put('/market', (req, res) => {
+  const v = Math.floor(Number(req.body && req.body.delist_price));
+  if (!Number.isInteger(v) || v < 100 || v > 1000000) return res.status(400).json({ error: 'INVALID_THRESHOLD' });
+  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('delist_price', ?)").run(String(v));
+  res.json({ ok: true, delist_price: v });
+});
+
+// POST /api/admin/market/check (상폐/M&A 수동 점검)
+router.post('/market/check', (req, res) => {
+  const { checkDelistings } = require('../price');
+  checkDelistings();
+  res.json({ ok: true });
+});
+
+// GET /api/admin/schedules (일정 정의 목록)
+router.get('/schedules', (req, res) => {
+  res.json(db.prepare('SELECT * FROM schedules ORDER BY scheduled_at DESC LIMIT 100').all());
+});
+
+function checkScheduleInput(body, isNew) {
+  const { title, kind, scope, stock_code, tag, scheduled_at, effect, magnitude, duration_min } = body || {};
+  const out = {};
+  if (title !== undefined || isNew) {
+    const t = String(title || '').trim();
+    if (!t || t.length > 50) return { error: 'INVALID_TITLE' };
+    out.title = t;
+  }
+  if (kind !== undefined || isNew) {
+    const k = kind || '기타';
+    if (!['거시', '실적', '공시', '기타'].includes(k)) return { error: 'INVALID_KIND' };
+    out.kind = k;
+  }
+  const scopeVal = scope !== undefined ? scope : isNew ? '전체' : undefined;
+  if (scopeVal !== undefined) {
+    if (!['전체', '종목', '태그'].includes(scopeVal)) return { error: 'INVALID_SCOPE' };
+    out.scope = scopeVal;
+  }
+  const finalScope = out.scope;  if (stock_code !== undefined) out.stock_code = String(stock_code).trim() || null;
+  if (tag !== undefined) out.tag = String(tag).trim().slice(0, 100);
+  if (scheduled_at !== undefined || isNew) {
+    const s = String(scheduled_at || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?$/.test(s)) return { error: 'INVALID_DATETIME' };
+    out.scheduled_at = s.length === 16 ? s + ':00' : s;
+  }
+  if (body && body.body !== undefined) out.body = String(body.body).slice(0, 500);
+  else if (isNew) out.body = '';
+  if (effect !== undefined || isNew) {
+    const e = effect || '랜덤';
+    if (!['급등', '급락', '랜덤'].includes(e)) return { error: 'INVALID_EFFECT' };
+    out.effect = e;
+  }
+  if (magnitude !== undefined || isNew) {
+    const m = magnitude === undefined ? 0.08 : Number(magnitude);
+    if (!Number.isFinite(m) || m <= 0 || m > 0.3) return { error: 'INVALID_MAGNITUDE' };
+    out.magnitude = m;
+  }
+  if (duration_min !== undefined || isNew) {
+    const d = duration_min === undefined ? 10 : Math.floor(Number(duration_min));
+    if (!Number.isInteger(d) || d < 1 || d > 60) return { error: 'INVALID_DURATION' };
+    out.duration_min = d;
+  }
+  return out;
+}
+
+// POST /api/admin/schedules (일정 추가)
+router.post('/schedules', (req, res) => {
+  const v = checkScheduleInput(req.body, true);
+  if (v.error) return res.status(400).json({ error: v.error });
+  if (v.scope === '종목' && !v.stock_code) return res.status(400).json({ error: 'STOCK_REQUIRED' });
+  if (v.scope === '태그' && !v.tag) return res.status(400).json({ error: 'TAG_REQUIRED' });
+  if (v.scope === '종목' && !db.prepare('SELECT code FROM stocks WHERE code = ?').get(v.stock_code)) {
+    return res.status(404).json({ error: 'NOT_FOUND' });
+  }
+  const r = db.prepare(
+    'INSERT INTO schedules (title, kind, scope, stock_code, tag, body, scheduled_at, effect, magnitude, duration_min) VALUES (?,?,?,?,?,?,?,?,?,?)'
+  ).run(v.title, v.kind, v.scope, v.stock_code || null, v.tag || '', v.body, v.scheduled_at, v.effect, v.magnitude, v.duration_min);
+  res.status(201).json(db.prepare('SELECT * FROM schedules WHERE id = ?').get(r.lastInsertRowid));
+});
+
+// PUT /api/admin/schedules/:id (일정 수정, 발표된 건 내용만)
+router.put('/schedules/:id', (req, res) => {
+  const row = db.prepare('SELECT * FROM schedules WHERE id = ?').get(req.params.id);
+  if (!row) return res.status(404).json({ error: 'NOT_FOUND' });
+  const v = checkScheduleInput(req.body, false);
+  if (v.error) return res.status(400).json({ error: v.error });
+  const keys = Object.keys(v);
+  if (!keys.length) return res.status(400).json({ error: 'NO_CHANGES' });
+  const effScope = v.scope || row.scope;
+  const effStock = v.stock_code !== undefined ? v.stock_code : row.stock_code;
+  const effTag = v.tag !== undefined ? v.tag : row.tag;
+  if (effScope === '종목' && !effStock) return res.status(400).json({ error: 'STOCK_REQUIRED' });
+  if (effScope === '태그' && !effTag) return res.status(400).json({ error: 'TAG_REQUIRED' });
+  db.prepare(`UPDATE schedules SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`)
+    .run(...keys.map((k) => v[k]), row.id);
+  res.json(db.prepare('SELECT * FROM schedules WHERE id = ?').get(row.id));
+});
+
+// DELETE /api/admin/schedules/:id (일정 삭제)
+router.delete('/schedules/:id', (req, res) => {
+  const row = db.prepare('SELECT * FROM schedules WHERE id = ?').get(req.params.id);
+  if (!row) return res.status(404).json({ error: 'NOT_FOUND' });
+  db.prepare('DELETE FROM schedules WHERE id = ?').run(row.id);
+  res.json({ ok: true });
+});
+
+// POST /api/admin/schedules/autofill (예정 3개 될 때까지 자동 편성, 수동)
+router.post('/schedules/autofill', (req, res) => {
+  const { ensureCalendar } = require('../schedules');
+  for (let i = 0; i < 3; i++) ensureCalendar();
+  res.json({ ok: true });
+});
+
+// POST /api/admin/schedules/:id/fire (일정 즉시 발표)
+router.post('/schedules/:id/fire', (req, res) => {
+  const row = db.prepare('SELECT * FROM schedules WHERE id = ?').get(req.params.id);
+  if (!row) return res.status(404).json({ error: 'NOT_FOUND' });
+  if (row.status !== '예정') return res.status(400).json({ error: 'ALREADY_DONE' });
+  const { fireSchedule } = require('../schedules');
+  const r = fireSchedule(row);
+  if (!r) return res.status(500).json({ error: 'FAILED' });
+  res.status(201).json(r);
+});
+
+// POST /api/admin/backup (Supabase 수동 백업: 재배포 직전용)
+router.post('/backup', async (req, res) => {
+  try {
+    const { uploadOnce, configured } = require('../backup');
+    if (!configured()) return res.status(400).json({ error: 'NOT_CONFIGURED' });
+    await uploadOnce();
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'FAILED' });
+  }
+});
+
 // GET /api/admin/gamble/halt (도박장 전체 정지 여부)
 router.get('/gamble/halt', (req, res) => {
   const r = db.prepare("SELECT value FROM settings WHERE key = 'gamble_halted'").get();

@@ -26,6 +26,8 @@ async function boot() {
   const { router: fundRouter } = require('./routes/fund');
   const { router: gambleRouter } = require('./routes/gamble');
   const { router: badgesRouter } = require('./routes/badges');
+const { router: blockRouter } = require('./routes/block');
+const { router: schedulesRouter } = require('./routes/schedules');
   const portfolioRouter = require('./routes/portfolio');
   const boardRouter = require('./routes/board');
   const adminRouter = require('./routes/admin');
@@ -67,6 +69,8 @@ async function boot() {
   app.use('/api/fund', fundRouter);
   app.use('/api/gamble', gambleRouter);
   app.use('/api/badges', badgesRouter);
+app.use('/api/block', blockRouter);
+app.use('/api/schedules', schedulesRouter);
   app.use('/api', portfolioRouter);
   app.use('/api/admin', adminRouter);
   startPriceLoop(10000); // 10초 틱: 형성 중 봉이 실시간으로 움직임 (분당 변동성은 1분틱과 동일하게 스케일)

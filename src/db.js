@@ -29,6 +29,14 @@ try {
   db.exec('ALTER TABLE stocks ADD COLUMN listed_shares INTEGER NOT NULL DEFAULT 1000000');
 } catch (e) { /* 이미 있으면 무시 */ }
 try {
+  db.exec("ALTER TABLE transactions ADD COLUMN via TEXT NOT NULL DEFAULT 'MARKET'");
+} catch (e) { /* 이미 있으면 무시 */ }
+for (const col of ['delist_type TEXT', 'delisted_at DATETIME']) {
+  try {
+    db.exec(`ALTER TABLE stocks ADD COLUMN ${col}`);
+  } catch (e) { /* 이미 있으면 무시 */ }
+}
+try {
   db.exec('ALTER TABLE users ADD COLUMN display_badge INTEGER REFERENCES badges(id)');
 } catch (e) { /* 이미 있으면 무시 */ }
 for (const col of ['p_up REAL', 'rng_up REAL', 'rng_down REAL', 'max_n INTEGER', 'max_mult REAL']) {

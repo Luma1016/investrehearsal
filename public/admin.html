@@ -42,6 +42,7 @@
         <button data-t="t6">실거래량</button>
         <button data-t="t7">뱃지</button>
         <button data-t="t8">펀드·도박</button>
+        <button data-t="t9">캘린더</button>
       </div>
       <div id="t1" style="margin-top:12px">
         <h2>이벤트 생성 (즉시/예약)</h2>
@@ -54,6 +55,7 @@
         <h2 style="margin-top:16px">조작로그</h2>
         <table><tr><th>종목</th><th>이전</th><th>이후</th><th>사유</th><th>일시</th></tr><tbody id="logRows"></tbody></table>
         <button class="btn" id="logReset" style="margin-top:10px">과거 시세 기록 초기화 (되돌릴 수 없음)</button>
+        <button class="btn" id="backupBtn" style="margin-top:10px">지금 백업 (재배포 전 눌러두기)</button>
         <p style="font-size:11.5px;color:var(--muted);margin-top:6px">종목별 현재가 1건만 남기고 전체 삭제 · 보유·거래·자산 기록은 유지 · 이후 10초마다 새 기록 누적</p>
         <h2 style="margin-top:16px">랜덤 뉴스 (5~60분 자동 + 수동 발생)</h2>
         <button class="btn" id="newsBtn">뉴스 1건 즉시 발생</button>
@@ -77,6 +79,7 @@
       </div>
       <div id="t4" style="margin-top:12px;display:none">
         <h2>종목 통합 관리 (추가·이름·주가·코드·상태·태그 한 번에)</h2>
+        <div class="search"><input id="mkTh" type="number" placeholder="상폐 기준가" style="max-width:120px"><button class="follow-btn" id="mkSave">기준 저장</button><button class="follow-btn" id="mkCheck">상폐/M&A 점검 실행</button></div>
         <div class="search"><input id="sCode" placeholder="코드 (영문대문자·숫자 2~10자)" style="max-width:140px"><input id="sName" placeholder="종목 이름" style="max-width:130px"><input id="sPrice" type="number" placeholder="상장가 (100원 이상)" style="max-width:120px"><input id="sTags" placeholder="태그 (예: 2차전지)" style="max-width:110px"><select id="sType" style="max-width:100px"><option value="normal">일반</option><option value="bluechip">대장주</option></select><input id="sDiv" type="number" placeholder="배당/주 (0=없음)" style="max-width:110px"><input id="sShares" type="number" placeholder="상장주식수" style="max-width:100px"><button class="follow-btn" id="sAdd">추가</button></div>
         <table><tr><th>코드</th><th>이름</th><th>현재가 → 새 주가</th><th>상태</th><th>태그</th><th>유형</th><th>배당/주</th><th>상장주식수</th><th>보유자·거래량</th><th></th></tr><tbody id="sRows"></tbody></table>
         <p style="font-size:11.5px;color:var(--muted);margin-top:6px">행별 저장 버튼 하나로 이름·코드·상태·주가·태그·유형·배당·상장주식수를 한 번에 반영 (주가 변경은 조작로그+공시 자동 기록, 코드 변경 시 보유·거래·게시글 함께 이전, 같은 태그끼리 테마 뉴스 동시 발생, 대장주는 변동 작게·거래량 크게)</p>
@@ -117,12 +120,29 @@
         <h2 style="margin-top:16px">하우스 수지</h2>
         <p id="gStat" style="font-size:13px"></p>
       </div>
+      <div id="t9" style="margin-top:12px;display:none">
+        <h2>경제 캘린더 일정 추가 (YYYY-MM-DD HH:MM, KST)</h2>
+        <div class="search"><input id="scTitle" placeholder="제목 (예: 한은 금리 결정)" style="max-width:190px"><select id="scKind" style="max-width:90px"><option value="거시">거시</option><option value="실적">실적</option><option value="공시">공시</option><option value="기타">기타</option></select><select id="scScope" style="max-width:90px"><option value="전체">전체</option><option value="종목">종목</option><option value="태그">태그</option></select></div>
+        <div class="search"><input id="scStock" placeholder="종목코드" style="max-width:110px"><input id="scTag" placeholder="태그" style="max-width:110px"><input id="scAt" placeholder="2026-10-20 11:00" style="max-width:150px"></div>
+        <div class="search"><select id="scEffect" style="max-width:100px"><option value="랜덤">랜덤</option><option value="급등">급등</option><option value="급락">급락</option></select><input id="scMag" placeholder="폭 (예: 0.08)" style="max-width:90px"><input id="scDur" type="number" placeholder="지속분" style="max-width:80px"><button class="follow-btn" id="scAdd">추가</button></div>
+        <table><tr><th>ID</th><th>제목</th><th>종류</th><th>범위</th><th>일시</th><th>상태</th><th></th></tr><tbody id="scRows"></tbody></table>
+        <button class="follow-btn" id="scAuto" style="margin-top:8px">자동 편성 (예정 3개까지 채우기)</button>
+      </div>
     </div>
   </main>
   <div class="rail"><div class="mini"><h3>안내</h3><p style="font-size:12.5px;color:var(--muted)">조작·이벤트 생성 시 종목 공시 자동 발행 · ADMIN만 접근</p></div></div>
 </div>
 <script src="/app.js"></script>
 <script>
+function bigWon(v) {
+  v = Number(v) || 0;
+  if (v >= 1e12) {
+    const jo = Math.floor(v / 1e12), eok = Math.floor((v % 1e12) / 1e8);
+    return eok > 0 ? `${jo}조 ${eok}억원` : `${jo}조원`;
+  }
+  if (v >= 1e8) return `${(v / 1e8).toFixed(2)}억원`;
+  return `${Math.round(v).toLocaleString()}원`;
+}
 (async () => {
   try {
     const me = await api('/api/auth/me');
@@ -133,7 +153,7 @@
 document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
   document.querySelectorAll('.tabs button').forEach(x => x.classList.remove('on'));
   b.classList.add('on');
-  ['t1', 't2', 't3', 't4', 't5', 't6', 't7', 't8'].forEach(t => document.getElementById(t).style.display = t === b.dataset.t ? '' : 'none');
+  ['t1', 't2', 't3', 't4', 't5', 't6', 't7', 't8', 't9'].forEach(t => document.getElementById(t).style.display = t === b.dataset.t ? '' : 'none');
 });
 async function loadAll() {
   const s = await api('/api/admin/summary');
@@ -204,8 +224,8 @@ async function loadAll() {
     await api(`/api/admin/indices/${b.dataset.xdel}`, 'DELETE'); toast('삭제됨'); loadAll();
   });
   const vs = await api('/api/admin/volumes');
-  document.getElementById('vStock').innerHTML = vs.byStock.map(r => `<tr><td><b>${r.name || r.code}</b> <span style="color:var(--muted);font-size:12px">${r.code}</span></td><td>${Number(r.buy_vol).toLocaleString()}주</td><td>${Number(r.sell_vol).toLocaleString()}주</td><td>${r.trades}건</td><td>${(Number(r.turnover) / 1e8).toFixed(2)}억원</td></tr>`).join('') || '<tr><td colspan=5 style="color:var(--muted)">실체결 없음</td></tr>';
-  document.getElementById('vUser').innerHTML = vs.byUser.map(r => `<tr><td>${r.nickname} <span style="color:var(--muted);font-size:12px">#${r.id}</span></td><td>${Number(r.buy_vol).toLocaleString()}주</td><td>${Number(r.sell_vol).toLocaleString()}주</td><td>${r.trades}건</td><td>${(Number(r.turnover) / 1e8).toFixed(2)}억원</td></tr>`).join('') || '<tr><td colspan=5 style="color:var(--muted)">실체결 없음</td></tr>';
+  document.getElementById('vStock').innerHTML = vs.byStock.map(r => `<tr><td><b>${r.name || r.code}</b> <span style="color:var(--muted);font-size:12px">${r.code}</span></td><td>${Number(r.buy_vol).toLocaleString()}주</td><td>${Number(r.sell_vol).toLocaleString()}주</td><td>${r.trades}건</td><td>${bigWon(r.turnover)}</td></tr>`).join('') || '<tr><td colspan=5 style="color:var(--muted)">실체결 없음</td></tr>';
+  document.getElementById('vUser').innerHTML = vs.byUser.map(r => `<tr><td>${r.nickname} <span style="color:var(--muted);font-size:12px">#${r.id}</span></td><td>${Number(r.buy_vol).toLocaleString()}주</td><td>${Number(r.sell_vol).toLocaleString()}주</td><td>${r.trades}건</td><td>${bigWon(r.turnover)}</td></tr>`).join('') || '<tr><td colspan=5 style="color:var(--muted)">실체결 없음</td></tr>';
   const bgs = await api('/api/admin/badges');
   document.getElementById('bgRows').innerHTML = bgs.map(b => `<tr><td>${b.id}</td><td><input data-bgn="${b.id}" value="${String(b.name).replace(/"/g, '&quot;')}" style="max-width:110px"></td><td><input data-bgd="${b.id}" value="${String(b.descrip || '').replace(/"/g, '&quot;')}" style="max-width:150px"></td><td><input data-bgp="${b.id}" type="number" value="${b.price}" style="max-width:90px"></td><td>${b.owners}명</td><td><button class="follow-btn" data-bgsave="${b.id}">저장</button> <button class="follow-btn" data-bgdel="${b.id}">삭제</button></td></tr>`).join('') || '<tr><td colspan=6 style="color:var(--muted)">없음</td></tr>';
   document.querySelectorAll('[data-bgsave]').forEach(b => b.onclick = async () => {
@@ -244,6 +264,10 @@ async function loadAll() {
     document.getElementById('gStat').textContent = `총 ${st.total.plays}판 · 베팅 ${Number(st.total.bet).toLocaleString()}원 · 지급 ${Number(st.total.payout).toLocaleString()}원 · 하우스 엣지 ${st.house_edge}%`;
   } catch (e) { document.getElementById('gStat').textContent = ''; }
   try {
+    const mk = await api('/api/admin/market');
+    document.getElementById('mkTh').value = mk.delist_price;
+  } catch (e) { /* 무시 */ }
+  try {
     const gs2 = await api('/api/admin/games');
     const crash = gs2.find(g => g.code === 'crash');
     if (crash) {
@@ -257,7 +281,44 @@ async function loadAll() {
     const h = await api('/api/admin/gamble/halt');
     paintHalt(h.halted);
   } catch (e) { /* 무시 */ }
+  const sc = await api('/api/admin/schedules');
+  document.getElementById('scRows').innerHTML = sc.map(x => `<tr><td>${x.id}</td><td><input data-sct="${x.id}" value="${String(x.title).replace(/"/g, '&quot;')}" style="max-width:150px"></td><td>${x.kind}</td><td>${x.scope}${x.stock_code ? '·' + x.stock_code : ''}${x.tag ? '·' + x.tag : ''}</td><td><input data-scat="${x.id}" value="${String(x.scheduled_at).slice(0, 16)}" style="max-width:130px"></td><td>${x.status}</td><td>${x.status === '예정' ? `<button class="follow-btn" data-scsave="${x.id}">저장</button> <button class="follow-btn" data-scfire="${x.id}">발표</button> ` : ''}<button class="follow-btn" data-scdel="${x.id}">삭제</button></td></tr>`).join('') || '<tr><td colspan=7 style="color:var(--muted)">없음</td></tr>';
+  document.querySelectorAll('[data-scsave]').forEach(b => b.onclick = async () => {
+    const id = b.dataset.scsave;
+    try { await api(`/api/admin/schedules/${id}`, 'PUT', { title: document.querySelector(`[data-sct="${id}"]`).value, scheduled_at: document.querySelector(`[data-scat="${id}"]`).value }); toast('일정 수정됨'); loadAll(); }
+    catch (e) { toast('수정 실패: ' + e.message); }
+  });
+  document.querySelectorAll('[data-scfire]').forEach(b => b.onclick = async () => {
+    if (!confirm('이 일정을 지금 발표할까요?')) return;
+    try { const r = await api(`/api/admin/schedules/${b.dataset.scfire}/fire`, 'POST'); toast(`발표됨: ${r.type || ''}`); loadAll(); }
+    catch (e) { toast('발표 실패: ' + e.message); }
+  });
+  document.querySelectorAll('[data-scdel]').forEach(b => b.onclick = async () => {
+    if (!confirm('이 일정을 삭제할까요?')) return;
+    await api(`/api/admin/schedules/${b.dataset.scdel}`, 'DELETE'); toast('삭제됨'); loadAll();
+  });
 }
+document.getElementById('scAdd').onclick = async () => {
+  const mag = Number(document.getElementById('scMag').value);
+  const dur = Number(document.getElementById('scDur').value);
+  const body = {
+    title: document.getElementById('scTitle').value.trim(),
+    kind: document.getElementById('scKind').value,
+    scope: document.getElementById('scScope').value,
+    stock_code: document.getElementById('scStock').value.trim() || undefined,
+    tag: document.getElementById('scTag').value.trim() || undefined,
+    scheduled_at: document.getElementById('scAt').value.trim(),
+    effect: document.getElementById('scEffect').value,
+  };
+  if (document.getElementById('scMag').value) body.magnitude = mag;
+  if (document.getElementById('scDur').value) body.duration_min = dur;
+  try { await api('/api/admin/schedules', 'POST', body); toast('일정 추가됨'); loadAll(); }
+  catch (e) { toast('추가 실패: ' + e.message); }
+};
+document.getElementById('scAuto').onclick = async () => {
+  try { await api('/api/admin/schedules/autofill', 'POST'); toast('자동 편성됨'); loadAll(); }
+  catch (e) { toast('편성 실패: ' + e.message); }
+};
 document.getElementById('eBtn').onclick = async () => {
   try { await api('/api/admin/events', 'POST', { code: document.getElementById('eCode').value.trim(), type: document.getElementById('eType').value.trim(), rate: Number(document.getElementById('eRate').value), reason: document.getElementById('eReason').value }); loadAll(); }
   catch (e) { toast('생성 실패: ' + e.message); }
@@ -331,12 +392,24 @@ document.getElementById('gAdd').onclick = async () => {
 document.getElementById('bBlind').onclick = async () => { await api(`/api/admin/posts/${document.getElementById('bId').value}/blind`, 'POST'); toast('블라인드 처리'); loadAll(); };
 document.getElementById('bUnblind').onclick = async () => { await api(`/api/admin/posts/${document.getElementById('bId').value}/unblind`, 'POST'); toast('해제'); loadAll(); };
 document.getElementById('bDel').onclick = async () => { if (!confirm('삭제할까요?')) return; await api(`/api/admin/posts/${document.getElementById('bId').value}`, 'DELETE'); toast('삭제'); loadAll(); };
+document.getElementById('mkSave').onclick = async () => {
+  try { const r = await api('/api/admin/market', 'PUT', { delist_price: Number(document.getElementById('mkTh').value) }); toast(`상폐 기준 ${Number(r.delist_price).toLocaleString()}원 저장`); }
+  catch (e) { toast('저장 실패: ' + e.message); }
+};
+document.getElementById('mkCheck').onclick = async () => {
+  if (!confirm('상폐/M&A 점검을 지금 실행할까요? 기준 미달 종목은 즉시 처리됩니다.')) return;
+  try { await api('/api/admin/market/check', 'POST'); toast('점검 완료'); loadAll(); }
+  catch (e) { toast('점검 실패: ' + e.message); }
+};
 document.getElementById('sAdd').onclick = async () => {
   try { await api('/api/admin/stocks', 'POST', { code: document.getElementById('sCode').value.trim(), name: document.getElementById('sName').value.trim(), cur_price: Number(document.getElementById('sPrice').value), tags: document.getElementById('sTags').value.trim(), stock_type: document.getElementById('sType').value, dividend: Number(document.getElementById('sDiv').value) || 0, listed_shares: Number(document.getElementById('sShares').value) || undefined }); toast('종목 추가됨 · 공시 발행'); loadAll(); }
   catch (e) { toast('추가 실패: ' + e.message); }
 };
-document.getElementById('logReset').onclick = async () => {
-  if (!confirm('과거 시세 기록을 모두 지울까요? 종목별 현재가 1건만 남습니다.')) return;
+document.getElementById('backupBtn').onclick = async () => {
+  try { await api('/api/admin/backup', 'POST'); toast('백업 완료 — 이제 재배포해도 돼요'); }
+  catch (e) { toast('백업 실패: ' + e.message); }
+};
+document.getElementById('logReset').onclick = async () => {  if (!confirm('과거 시세 기록을 모두 지울까요? 종목별 현재가 1건만 남습니다.')) return;
   if (!confirm('정말 초기화합니다. 되돌릴 수 없습니다.')) return;
   try { const r = await api('/api/admin/price-logs/reset', 'POST'); toast(`시세 기록 초기화됨 (${r.stocks}종목)`); loadAll(); }
   catch (e) { toast('초기화 실패: ' + e.message); }

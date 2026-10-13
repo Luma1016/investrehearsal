@@ -50,10 +50,10 @@ router.get('/', (req, res) => {
   let rows;
   if (q) {
     rows = db.prepare(
-      `${base} WHERE s.code LIKE ? OR s.name LIKE ? OR s.tags LIKE ? ORDER BY s.code`
+      `${base} WHERE s.delist_type IS NULL AND (s.code LIKE ? OR s.name LIKE ? OR s.tags LIKE ?) ORDER BY s.code`
     ).all(`%${q}%`, `%${q}%`, `%${q}%`);
   } else {
-    rows = db.prepare(`${base} ORDER BY s.code`).all();
+    rows = db.prepare(`${base} WHERE s.delist_type IS NULL ORDER BY s.code`).all();
   }
   res.json(rows.map((r) => {
     const w = withDay(r);
@@ -94,9 +94,18 @@ router.get('/:code/trades', (req, res) => {
   res.json({ code: s.code, trades: rows });
 });
 
+// GET /api/stocks/:code/events (공개: 최근 이벤트 20, 차트 거래량 부스트용)
+router.get('/:code/events', (req, res) => {
+  const s = db.prepare('SELECT code FROM stocks WHERE code = ?').get(req.params.code);
+  if (!s) return res.status(404).json({ error: 'NOT_FOUND' });
+  res.json(db.prepare(
+    'SELECT id, stock_code, type, rate, status, reason, start_at, end_at FROM stock_events WHERE stock_code = ? ORDER BY id DESC LIMIT 20'
+  ).all(s.code));
+});
+
 // GET /api/stocks/:code 상세 (현재가 + 보유뱃지용 + 태그 + 당일등락)
 router.get('/:code', (req, res) => {
-  const s = db.prepare('SELECT code, name, cur_price, status, tags, stock_type, dividend, listed_shares, updated_at FROM stocks WHERE code = ?')
+  const s = db.prepare('SELECT code, name, cur_price, status, tags, stock_type, dividend, listed_shares, delist_type, updated_at FROM stocks WHERE code = ?')
     .get(req.params.code);
   if (!s) return res.status(404).json({ error: 'NOT_FOUND' });
   let isHolder = false;
