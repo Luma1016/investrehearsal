@@ -110,7 +110,7 @@
         <div class="search"><input id="gCode" placeholder="코드(영문소문자)" style="max-width:120px"><input id="gName" placeholder="이름" style="max-width:110px"><input id="gMult" placeholder="배율" style="max-width:80px"><input id="gProb" placeholder="확률" style="max-width:80px"><button class="follow-btn" id="gAdd">추가</button></div>
         <table><tr><th>코드</th><th>이름</th><th>배율</th><th>확률</th><th>환수율</th><th>사용</th><th></th></tr><tbody id="gRows"></tbody></table>
         <h2 style="margin-top:16px">크래시 가중치·기대값·상한</h2>
-        <div class="search"><input id="cPup" placeholder="상승확률 (예: 0.48)" style="max-width:120px"><input id="cRup" placeholder="상승폭 (예: 1.0)" style="max-width:110px"><input id="cRdown" placeholder="하락폭 (예: 1.1)" style="max-width:110px"><input id="cMaxN" type="number" placeholder="최대 단계" style="max-width:90px"><button class="follow-btn" id="cSave">저장</button></div>
+        <div class="search"><input id="cPup" placeholder="상승확률 (예: 0.49)" style="max-width:110px"><input id="cRup" placeholder="상승폭 (예: 1.0)" style="max-width:100px"><input id="cRdown" placeholder="하락폭 (예: 1.05)" style="max-width:100px"><input id="cMaxN" type="number" placeholder="최대 단계" style="max-width:80px"><input id="cMaxM" type="number" placeholder="배율 상한" style="max-width:80px"><button class="follow-btn" id="cSave">저장</button></div>
         <p id="cInfo" style="font-size:12px;color:var(--muted);margin-top:6px"></p>
         <h2 style="margin-top:16px">도박장 전체 정지</h2>
         <button class="btn" id="haltBtn">불러오는 중...</button>
@@ -220,10 +220,17 @@ async function loadAll() {
   document.getElementById('fdDon').innerHTML = fd.donations.slice(0, 20).map(d => `<tr><td>${d.nickname || '-'}</td><td>${Number(d.amount).toLocaleString()}원</td><td>${String(d.created_at).slice(0, 16)}</td></tr>`).join('') || '<tr><td colspan=3 style="color:var(--muted)">없음</td></tr>';
   document.getElementById('fdClaim').innerHTML = fd.claims.slice(0, 20).map(d => `<tr><td>${d.nickname || '-'}</td><td>${Number(d.amount).toLocaleString()}원</td><td>${String(d.created_at).slice(0, 16)}</td></tr>`).join('') || '<tr><td colspan=3 style="color:var(--muted)">없음</td></tr>';
   const gs = await api('/api/admin/games');
-  document.getElementById('gRows').innerHTML = gs.map(g => `<tr><td>${g.code}</td><td><input data-gn="${g.code}" value="${String(g.name).replace(/"/g, '&quot;')}" style="max-width:90px"></td><td><input data-gm="${g.code}" value="${g.payout_mult}" style="max-width:60px"></td><td><input data-gp="${g.code}" value="${g.win_prob}" style="max-width:60px"></td><td>${Math.round(g.payout_mult * g.win_prob * 1000) / 10}%</td><td><input data-ge="${g.code}" type="checkbox"${g.enabled ? ' checked' : ''}></td><td><button class="follow-btn" data-gsave="${g.code}">저장</button> <button class="follow-btn" data-gdel="${g.code}">삭제</button></td></tr>`).join('');
+  document.getElementById('gRows').innerHTML = gs.map(g => g.code === 'crash'
+    ? `<tr><td>${g.code}</td><td><input data-gn="${g.code}" value="${String(g.name).replace(/"/g, '&quot;')}" style="max-width:90px"></td><td colspan="3" style="color:var(--muted);font-size:12px">아래 크래시 가중치에서 설정</td><td><input data-ge="${g.code}" type="checkbox"${g.enabled ? ' checked' : ''}></td><td><button class="follow-btn" data-gsave="${g.code}">저장</button> <button class="follow-btn" data-gdel="${g.code}">삭제</button></td></tr>`
+    : `<tr><td>${g.code}</td><td><input data-gn="${g.code}" value="${String(g.name).replace(/"/g, '&quot;')}" style="max-width:90px"></td><td><input data-gm="${g.code}" value="${g.payout_mult}" style="max-width:60px"></td><td><input data-gp="${g.code}" value="${g.win_prob}" style="max-width:60px"></td><td>${Math.round(g.payout_mult * g.win_prob * 1000) / 10}%</td><td><input data-ge="${g.code}" type="checkbox"${g.enabled ? ' checked' : ''}></td><td><button class="follow-btn" data-gsave="${g.code}">저장</button> <button class="follow-btn" data-gdel="${g.code}">삭제</button></td></tr>`).join('');
   document.querySelectorAll('[data-gsave]').forEach(b => b.onclick = async () => {
     const c = b.dataset.gsave;
-    try { await api(`/api/admin/games/${c}`, 'PUT', { name: document.querySelector(`[data-gn="${c}"]`).value, payout_mult: Number(document.querySelector(`[data-gm="${c}"]`).value), win_prob: Number(document.querySelector(`[data-gp="${c}"]`).value), enabled: document.querySelector(`[data-ge="${c}"]`).checked }); toast('게임 수정됨'); loadAll(); }
+    const body = { name: document.querySelector(`[data-gn="${c}"]`).value, enabled: document.querySelector(`[data-ge="${c}"]`).checked };
+    if (c !== 'crash') {
+      body.payout_mult = Number(document.querySelector(`[data-gm="${c}"]`).value);
+      body.win_prob = Number(document.querySelector(`[data-gp="${c}"]`).value);
+    }
+    try { await api(`/api/admin/games/${c}`, 'PUT', body); toast('게임 수정됨'); loadAll(); }
     catch (e) { toast('수정 실패: ' + e.message); }
   });
   document.querySelectorAll('[data-gdel]').forEach(b => b.onclick = async () => {
@@ -242,7 +249,8 @@ async function loadAll() {
       document.getElementById('cRup').value = crash.rng_up;
       document.getElementById('cRdown').value = crash.rng_down;
       document.getElementById('cMaxN').value = crash.max_n;
-      document.getElementById('cInfo').textContent = `현재: 상승확률 ${crash.p_up} · 상승폭 ${crash.rng_up} · 하락폭 ${crash.rng_down} · 최대 ${crash.max_n}단계 (상승기대 < 하락기대 = 하우스 우위 강제)`;
+      document.getElementById('cMaxM').value = crash.max_mult;
+      document.getElementById('cInfo').textContent = `현재: 상승확률 ${crash.p_up} · 상승폭 ${crash.rng_up} · 하락폭 ${crash.rng_down} · 최대 ${crash.max_n}단계 · 배율 상한 ±${crash.max_mult}x (상승기대 < 하락기대 = 하우스 우위 강제)`;
     }
     const h = await api('/api/admin/gamble/halt');
     paintHalt(h.halted);
@@ -302,6 +310,7 @@ document.getElementById('cSave').onclick = async () => {
       rng_up: Number(document.getElementById('cRup').value),
       rng_down: Number(document.getElementById('cRdown').value),
       max_n: Number(document.getElementById('cMaxN').value),
+      max_mult: Number(document.getElementById('cMaxM').value),
     });
     toast('크래시 설정 저장됨'); loadAll();
   } catch (e) { toast('저장 실패: ' + e.message); }

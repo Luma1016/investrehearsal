@@ -6,7 +6,16 @@ const { restoreIfNeeded, startBackupLoop } = require('./backup');
 
 async function boot() {
   // Supabase 복구 (미설정 시 스킵) — db를 여는 모든 require보다 먼저 실행되어야 함
-  await restoreIfNeeded();
+  // 복구 실패해도 로컬 DB가 있으면 기동 계속 (Supabase 장애 시 사이트 생존)
+  try {
+    await restoreIfNeeded();
+  } catch (e) {
+    const fs = require('fs');
+    const local = process.env.DB_PATH || path.join(__dirname, '..', 'db.sqlite');
+    console.error('[backup] 복구 실패:', e.message);
+    if (!fs.existsSync(local)) throw e;
+    console.log('[backup] 로컬 DB로 기동 계속');
+  }
 
   require('./db'); // 시드 실행용 (import side-effect)
   const authRouter = require('./routes/auth');

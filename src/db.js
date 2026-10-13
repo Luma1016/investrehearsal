@@ -28,22 +28,33 @@ try {
 try {
   db.exec('ALTER TABLE users ADD COLUMN display_badge INTEGER REFERENCES badges(id)');
 } catch (e) { /* 이미 있으면 무시 */ }
-for (const col of ['p_up REAL', 'rng_up REAL', 'rng_down REAL', 'max_n INTEGER']) {
+for (const col of ['p_up REAL', 'rng_up REAL', 'rng_down REAL', 'max_n INTEGER', 'max_mult REAL']) {
   try {
     db.exec(`ALTER TABLE games ADD COLUMN ${col}`);
   } catch (e) { /* 이미 있으면 무시 */ }
 }
-// 크래시 행이 옛날 시드(파라미터 없음)로 존재하면 보정 (신규 DB는 아래 시드가 담당하므로 기존 게임 있을 때만)
+// 홀짝 제거 마이그레이션 (1회성): coin/dice 행 삭제, crash 파라미터 보정
 try {
-  const gc = db.prepare('SELECT COUNT(*) AS c FROM games').get().c;
-  if (gc > 0) {
-    const crash = db.prepare("SELECT p_up FROM games WHERE code = 'crash'").get();
-    if (crash && crash.p_up == null) {
-      db.prepare("UPDATE games SET p_up = 0.48, rng_up = 1.0, rng_down = 1.1, max_n = 10 WHERE code = 'crash'").run();
+  const done = db.prepare("SELECT value FROM settings WHERE key = 'migrated_rm_coindice'").get();
+  if (!done) {
+    db.prepare("DELETE FROM games WHERE code IN ('coin','dice')").run();
+    const gc = db.prepare('SELECT COUNT(*) AS c FROM games').get().c;
+    if (gc > 0) {
+    const crash = db.prepare('SELECT p_up, max_mult FROM games WHERE code = ?').get('crash');
+    if (crash) {
+      if (crash.p_up == null) {
+        db.prepare('UPDATE games SET p_up = 0.49, rng_up = 1.0, rng_down = 1.05, max_n = 10 WHERE code = ?').run('crash');
+      }
+      if (crash.max_mult == null) {
+        db.prepare('UPDATE games SET max_mult = 10 WHERE code = ?').run('crash');
+      }
     }
-    if (!crash) {
-      db.prepare("INSERT INTO games (code, name, payout_mult, win_prob, min_bet, enabled, descrip, p_up, rng_up, rng_down, max_n) VALUES ('crash','크래시',0,0.5,100,1,'목표 단계 도달 배율 게임 (승률 약 45%)',0.48,1.0,1.1,10)").run();
+    if (gc > 0 && !crash) {
+      db.prepare("INSERT INTO games (code, name, payout_mult, win_prob, min_bet, enabled, descrip, p_up, rng_up, rng_down, max_n, max_mult) VALUES ('crash','크래시',0,0.5,100,1,'목표 단계 도달 배율 게임 (승률 약 45%)',0.49,1.0,1.05,10,10)").run();
     }
+    }
+    db.prepare("INSERT INTO settings (key, value) VALUES ('migrated_rm_coindice','1')").run();
+    console.log('[db] migrated: coin/dice 제거, crash 보정');
   }
 } catch (e) { /* 무시 */ }
 
@@ -133,13 +144,11 @@ function seed() {
   // 6) 엔젤펀드 pool 1행
   db.prepare('INSERT OR IGNORE INTO angel_fund (id, balance) VALUES (1, 0)').run();
 
-  // 7) 도박 게임 시드 (환수율<100% 하우스 우위: 동전 90%, 주사위 83%)
+  // 7) 도박 게임 시드: 크래시만 (홀짝은 제거됨, 관리자 필요시 재추가 가능)
   const gameCnt = db.prepare('SELECT COUNT(*) AS c FROM games').get().c;
   if (gameCnt === 0) {
-    db.prepare("INSERT INTO games (code, name, payout_mult, win_prob, min_bet, enabled, descrip) VALUES ('coin','동전 홀짝',1.8,0.5,100,1,'홀/짝 맞추면 1.8배 (환수율 90%)')").run();
-    db.prepare("INSERT INTO games (code, name, payout_mult, win_prob, min_bet, enabled, descrip) VALUES ('dice','주사위',5.0,0.1667,100,1,'숫자 맞추면 5배 (환수율 83%)')").run();
-    db.prepare("INSERT INTO games (code, name, payout_mult, win_prob, min_bet, enabled, descrip, p_up, rng_up, rng_down, max_n) VALUES ('crash','크래시',0,0.5,100,1,'목표 단계 도달 배율 게임 (승률 약 45%)',0.48,1.0,1.1,10)").run();
-    console.log('[db] seeded games: coin, dice, crash');
+    db.prepare("INSERT INTO games (code, name, payout_mult, win_prob, min_bet, enabled, descrip, p_up, rng_up, rng_down, max_n, max_mult) VALUES ('crash','크래시',0,0.5,100,1,'목표 단계 도달 배율 게임 (승률 약 45%)',0.49,1.0,1.05,10,10)").run();
+    console.log('[db] seeded games: crash');
   }
 
   // 8) 구매 뱃지 시드 (돈 소비처)

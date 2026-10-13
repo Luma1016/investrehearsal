@@ -10,7 +10,7 @@ services:
     startCommand: node src/server.js
     envVars:
       - key: NODE_VERSION
-        value: 20.19.0
+        value: 22.12.0
       - key: SESSION_SECRET
         generateValue: true
       # Supabase 백업 (A안): 아래 2개만 넣으면 DB 영속화. 버킷은 자동 생성.

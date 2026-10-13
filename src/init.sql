@@ -203,7 +203,8 @@ CREATE TABLE IF NOT EXISTS games (
   p_up REAL,
   rng_up REAL,
   rng_down REAL,
-  max_n INTEGER
+  max_n INTEGER,
+  max_mult REAL
 );
 
 CREATE TABLE IF NOT EXISTS settings (

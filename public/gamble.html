@@ -25,36 +25,22 @@
   </aside>
   <main class="main">
     <div class="panel">
-      <h2>도박장 <span style="font-size:11.5px;color:var(--muted);font-weight:700">돈 버리는 곳 · 주식이 본업</span></h2>
-      <p style="font-size:12.5px;color:var(--muted);margin-top:6px">모든 게임은 하우스가 유리하게 설계돼 있어요 (환수율 100% 미만). 오래 하면 잃어요.</p>
-      <p style="font-size:13px;margin-top:8px">내 전적: <b id="myStat">-</b></p>
-      <div class="search"><select id="gSel" style="max-width:170px"></select><input id="gBet" type="number" placeholder="베팅금" style="max-width:120px"></div>
-      <div class="search"><select id="gChoice" style="max-width:170px"><option value="홀">홀</option><option value="짝">짝</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select><button class="follow-btn" id="gBtn">베팅</button></div>
-      <p id="gMsg" style="font-size:13.5px;font-weight:800;margin-top:8px"></p>
-    </div>
-    <div class="panel">
       <h2>크래시 <span style="font-size:11.5px;color:var(--muted);font-weight:700">목표 단계 도달 배율 · 한 단계씩 공개</span></h2>
-      <p style="font-size:12.5px;color:var(--muted);margin-top:6px">목표 단계가 높을수록 한 방도 크지만 쪽박도 커요 · 최대 손실(베팅금×목표단계)을 감당할 잔액이 있어야 시작돼요</p>
-      <div class="search"><input id="cBet" type="number" placeholder="베팅금" style="max-width:120px"><input id="cTarget" type="number" placeholder="목표 단계 (예: 7)" style="max-width:120px"><button class="follow-btn" id="cBtn">시작</button></div>
+      <p style="font-size:12.5px;color:var(--muted);margin-top:6px">베팅금 = 건 돈 · 목표 단계 = 판정할 그래프 순서(예: 7번째) · 최종 배율이 베팅금에 곱해져요 · 목표가 높을수록 한 방도 쪽박도 커요 · 최대 손실(베팅금×배율상한)을 감당할 잔액이 있어야 시작돼요</p>
+      <p id="cRule" style="font-size:12px;color:var(--muted);margin-top:4px"></p>
+      <div class="search"><input id="cBet" type="number" placeholder="베팅금" style="max-width:120px"><input id="cTarget" type="number" placeholder="목표 단계 (1~10)" style="max-width:120px"><button class="follow-btn" id="cBtn">시작</button></div>
       <canvas id="crashCv" width="640" height="220" style="width:100%;margin-top:8px"></canvas>
       <p id="cMsg" style="font-size:13.5px;font-weight:800;margin-top:8px"></p>
     </div>
-    <div class="panel"><h2>내 도박 로그 <span style="font-size:11.5px;color:var(--muted);font-weight:700">얻은돈·잃은돈</span></h2><div class="tape" id="myLog" style="max-height:260px;overflow:auto"></div><p id="myNet" style="font-size:13px;font-weight:800;margin-top:8px"></p></div>
+    <div class="panel"><h2>내 도박 로그 <span style="font-size:11.5px;color:var(--muted);font-weight:700">얻은돈·잃은돈</span></h2><p style="font-size:13px;margin-top:8px">내 전적: <b id="myStat">-</b></p><div class="tape" id="myLog" style="max-height:260px;overflow:auto"></div><p id="myNet" style="font-size:13px;font-weight:800;margin-top:8px"></p></div>
     <div class="panel"><h2>최근 결과 <span style="font-size:11.5px;color:var(--muted);font-weight:700">익명</span></h2><div class="tape" id="tape"></div></div>
   </main>
-  <div class="rail"><div class="mini"><h3>안내</h3><p style="font-size:12.5px;color:var(--muted)">동전 1.8배(환수율 90%) · 주사위 5배(환수율 83%)</p></div></div>
+  <div class="rail"><div class="mini"><h3>안내</h3><p style="font-size:12.5px;color:var(--muted)">크래시는 하우스가 유리하게 설계돼 있어요 (승률 약 45%) · 주식이 본업</p></div></div>
 </div>
 <div class="ttoast" id="ttoast"></div>
 <script src="/app.js"></script>
 <script>
 function ttoast(m) { const t = document.getElementById('ttoast'); t.textContent = m; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2200); }
-async function loadGames() {
-  const gs = await api('/api/gamble/games');
-  const on = gs.filter(g => g.enabled);
-  document.getElementById('gSel').innerHTML = on.map(g => g.code === 'crash'
-    ? `<option value="${g.code}">${g.name} · 목표단계 배율 (아래 크래시 패널에서 시작)</option>`
-    : `<option value="${g.code}">${g.name} · ${g.payout_mult}배 · 환수율 ${g.rtp}%</option>`).join('') || '<option value="">게임 없음</option>';
-}
 async function loadMy() {
   try {
     const s = await api('/api/gamble/my');
@@ -70,8 +56,17 @@ async function loadTape() {
     }).join('') || '<p style="font-size:12.5px;color:var(--muted);padding:12px">아직 없어요.</p>';
   } catch (e) { /* 무시 */ }
 }
-async function loadMyLog() {
+async function loadCrashRule() {
   try {
+    const gs = await api('/api/gamble/games');
+    const c = gs.find(g => g.code === 'crash');
+    if (c) {
+      document.getElementById('cRule').textContent = `현재: 최대 ${c.max_n}단계 · 최종 배율 ±${c.max_mult}x 상한`;
+      document.getElementById('cTarget').placeholder = `목표 단계 (1~${c.max_n})`;
+    }
+  } catch (e) { /* 무시 */ }
+}
+async function loadMyLog() {  try {
     const r = await api('/api/gamble/my/recent');
     document.getElementById('myLog').innerHTML = r.rows.map(x => {
       const net = x.game_code === 'crash' ? Number(x.payout) : Number(x.payout) - Number(x.bet);
@@ -95,11 +90,12 @@ function beep(up, step) {
     o.start(); o.stop(actx.currentTime + 0.3);
   } catch (e) { /* 무시 */ }
 }
-function drawCrash(pts, n, hi) {
+function drawCrash(pts, n, hi, maxM) {
   const cv = document.getElementById('crashCv'), ctx = cv.getContext('2d');
   const W = cv.width, H = cv.height;
   ctx.clearRect(0, 0, W, H);
-  const lo = -n, top = n, rg = (top - lo) || 1;
+  const M = maxM || n;
+  const lo = -M, top = M, rg = (top - lo) || 1;
   const X = (i) => 30 + i / Math.max(1, n) * (W - 40);
   const Y = (v) => 12 + (1 - (v - lo) / rg) * (H - 44);
   ctx.strokeStyle = '#EEF0F3'; ctx.lineWidth = 1;
@@ -114,7 +110,7 @@ function drawCrash(pts, n, hi) {
     ctx.beginPath(); ctx.arc(X(i), Y(pts[i]), i === hi ? 6 : 3.5, 0, 7); ctx.fill();
   }
   ctx.fillStyle = '#8B95A1'; ctx.font = '10px sans-serif';
-  ctx.fillText('+' + n + 'x', 4, Y(n) + 3); ctx.fillText('-' + n + 'x', 4, Y(-n) + 3);
+  ctx.fillText('+' + M + 'x', 4, Y(M) + 3); ctx.fillText('-' + M + 'x', 4, Y(-M) + 3);
 }
 let crashing = false;
 document.getElementById('cBtn').onclick = async () => {
@@ -126,10 +122,16 @@ document.getElementById('cBtn').onclick = async () => {
   try {
     r = await api('/api/gamble/crash/start', 'POST', { bet, target });
   } catch (e) {
-    if (String(e.message).includes('INSUFFICIENT_MAXLOSS')) {
+    const m = String(e.message || e);
+    console.error('[crash] start failed:', m);
+    if (m.includes('INSUFFICIENT_MAXLOSS')) {
       return ttoast('최대 손실(마이너스) 발생 시 잔액이 부족하여 게임을 시작할 수 없습니다.');
     }
-    return ttoast('시작 실패: ' + e.message);
+    if (m.includes('INVALID_BET')) return ttoast('베팅금이 너무 작아요 (최소 100원).');
+    if (m.includes('INVALID_TARGET')) return ttoast('목표 단계는 1~10 사이로 입력해 주세요.');
+    if (m.includes('GAMBLE_HALTED')) return ttoast('도박장이 점검 중이에요.');
+    if (m.includes('LOGIN_REQUIRED')) return ttoast('로그인이 필요해요.');
+    return ttoast('시작 실패: ' + m);
   }
   crashing = true;
   document.getElementById('cBtn').disabled = true;
@@ -137,12 +139,12 @@ document.getElementById('cBtn').onclick = async () => {
   el.textContent = `목표 ${r.target}단계 진행 중...`;
   el.style.color = '#191F28';
   const pts = [0];
-  drawCrash(pts, r.target, -1);
+  drawCrash(pts, r.target, -1, r.maxMult);
   for (let i = 0; i < r.steps.length; i++) {
     await new Promise(res => setTimeout(res, 550));
     const s = r.steps[i];
     pts.push(s.pos);
-    drawCrash(pts, r.target, i + 1);
+    drawCrash(pts, r.target, i + 1, r.maxMult);
     beep(s.up, i + 1);
     el.textContent = `${s.step}단계: ${s.move >= 0 ? '+' : ''}${s.move} → ${s.pos >= 0 ? '+' : ''}${s.pos}x`;
     el.style.color = s.pos >= 0 ? '#F04452' : '#3182F6';
@@ -155,24 +157,10 @@ document.getElementById('cBtn').onclick = async () => {
   beep(r.win, r.target + 2);
   crashing = false;
   document.getElementById('cBtn').disabled = false;
-  loadMy(); loadMyLog(); loadTape();
-};
-document.getElementById('gBtn').onclick = async () => {
-  const game = document.getElementById('gSel').value, bet = Number(document.getElementById('gBet').value);
-  let choice = document.getElementById('gChoice').value;
-  if (game === 'dice') choice = Number(choice) || 1; else choice = (choice === '짝') ? '짝' : '홀';
-  if (!game || !bet) return ttoast('게임과 베팅금을 정해주세요');
-  if (game === 'crash') return ttoast('크래시는 아래 크래시 패널에서 시작해 주세요');
-  try {
-    const r = await api('/api/gamble/play', 'POST', { game, bet, choice });
-    const el = document.getElementById('gMsg');
-    el.textContent = r.win ? `적중! ${r.detail} · +${r.payout.toLocaleString()}원` : `꽝! ${r.detail} · -${r.bet.toLocaleString()}원`;
-    el.style.color = r.win ? '#F04452' : '#3182F6';
-    loadMy(); loadTape();
-  } catch (e) { ttoast('베팅 실패: ' + e.message); }
+loadMy(); loadMyLog(); loadTape(); loadCrashRule();
 };
 document.getElementById('logout').onclick = async (e) => { e.preventDefault(); await api('/api/auth/logout', 'POST'); location.href = '/login.html'; };
-loadGames(); loadMy(); loadMyLog(); loadTape();
+loadMy(); loadMyLog(); loadTape();
 </script>
 </body>
 </html>

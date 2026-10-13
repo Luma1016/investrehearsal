@@ -15,7 +15,7 @@ function isHaltedAll() {
 
 // GET /api/gamble/games (공개: 활성화된 게임 목록 + 환수율 표시용)
 router.get('/games', (req, res) => {
-  const rows = db.prepare('SELECT code, name, payout_mult, win_prob, min_bet, enabled, descrip FROM games ORDER BY code').all();
+  const rows = db.prepare('SELECT code, name, payout_mult, win_prob, min_bet, enabled, descrip, max_n, max_mult FROM games ORDER BY code').all();
   res.json(rows.map((g) => ({ ...g, rtp: Math.round(g.payout_mult * g.win_prob * 1000) / 10 })));
 });
 
@@ -66,9 +66,9 @@ router.post('/play', requireLogin, (req, res) => {
 });
 
 // POST /api/gamble/crash/start {bet, target} (목표 단계 크래시: 즉시 정산, 클라는 연출만)
-// - 시작 검증: 잔액 < 베팅금 × 목표단계 → 차단 (최대 -n배 감당 불가)
-// - n단계 누적 배율(±n 클램프)로 net 정산: 양수면 +bet×m, 음수면 -bet×|m|
-// - 단계별 변동폭은 목표가 클수록 커지고, 하우스 우위(승률 약 45%) 파라미터 적용
+// - 베팅금: 건 돈 / 목표 단계: 판정할 그래프 순서(주식 1봉=1스텝 개념, 1~max_n)
+// - 배율 상한(max_mult, 관리자 설정): 최종 배율 ±상한 클램프, 시작 검증 잔액 ≥ 베팅금×배율상한
+// - 스텝 이동폭은 봉 단위(±1 내외) + 목표가 클수록 소폭 증가, 하우스 우위 파라미터 적용
 router.post('/crash/start', requireLogin, (req, res) => {
   if (isHaltedAll()) return res.status(403).json({ error: 'GAMBLE_HALTED' });
   const g = db.prepare("SELECT * FROM games WHERE code = 'crash'").get();
@@ -76,31 +76,32 @@ router.post('/crash/start', requireLogin, (req, res) => {
   const bet = Math.floor(Number(req.body && req.body.bet));
   const n = Math.floor(Number(req.body && req.body.target));
   const maxN = Math.min(20, Math.max(1, g.max_n || 10));
-  const pUp = g.p_up != null ? g.p_up : 0.48;
-  const rUp = g.rng_up != null ? g.rng_up : 1.0;
-  const rDown = g.rng_down != null ? g.rng_down : 1.1;
+  const maxMult = Math.min(50, Math.max(1, g.max_mult != null ? g.max_mult : 10));
+  const pUp = g.p_up != null ? g.p_up : 0.49;
+  const rUp = Math.max(0.06, g.rng_up != null ? g.rng_up : 1.0);
+  const rDown = Math.max(0.06, g.rng_down != null ? g.rng_down : 1.05);
   if (!Number.isInteger(bet) || bet < g.min_bet) return res.status(400).json({ error: 'INVALID_BET' });
   if (!Number.isInteger(n) || n < 1 || n > maxN) return res.status(400).json({ error: 'INVALID_TARGET' });
   const acc = db.prepare('SELECT cash FROM accounts WHERE user_id = ?').get(req.user.id);
   const cash = acc ? acc.cash : 0;
-  if (cash < bet * n) {
-    return res.status(400).json({ error: 'INSUFFICIENT_MAXLOSS', need: bet * n, cash });
+  if (cash < bet * maxMult) {
+    return res.status(400).json({ error: 'INSUFFICIENT_MAXLOSS', need: bet * maxMult, cash });
   }
-  const vol = 1 + n / 10; // 목표 단계가 높을수록 변동성 증가
+  const vol = 1 + n / 20; // 목표 단계가 높을수록 변동성 소폭 증가
   const steps = [];
   let pos = 0;
   for (let i = 0; i < n; i++) {
     const up = Math.random() < pUp;
     const mag = up
-      ? 0.1 + Math.random() * (1.0 * rUp - 0.1)
-      : -(0.1 + Math.random() * (1.0 * rDown - 0.1));
+      ? 0.05 + Math.random() * (rUp - 0.05)
+      : -(0.05 + Math.random() * (rDown - 0.05));
     const mv = Math.round(mag * vol * 100) / 100;
     pos = Math.round((pos + mv) * 100) / 100;
     steps.push({ step: i + 1, move: mv, pos: Math.round(pos * 100) / 100, up });
   }
   let final = Math.round(pos * 100) / 100;
-  if (final > n) final = n;
-  if (final < -n) final = -n;
+  if (final > maxMult) final = maxMult;
+  if (final < -maxMult) final = -maxMult;
   const net = Math.round(bet * final);
   const tx = db.transaction(() => {
     if (net !== 0) db.prepare('UPDATE accounts SET cash = cash + ? WHERE user_id = ?').run(net, req.user.id);
@@ -109,7 +110,7 @@ router.post('/crash/start', requireLogin, (req, res) => {
   });
   tx();
   const cashAfter = db.prepare('SELECT cash FROM accounts WHERE user_id = ?').get(req.user.id).cash;
-  res.status(201).json({ ok: true, bet, target: n, steps, final, win: final > 0, net, cash: cashAfter });
+  res.status(201).json({ ok: true, bet, target: n, maxMult, steps, final, win: final > 0, net, cash: cashAfter });
 });
 
 // GET /api/gamble/my/recent (내 도박 로그 50, 스크롤용)

@@ -571,7 +571,7 @@ router.get('/games', (req, res) => {
 
 // POST /api/admin/games {code, name, ...} (게임 추가; crash는 가중치 파라미터 방식)
 router.post('/games', (req, res) => {
-  const { code, name, payout_mult, win_prob, min_bet, enabled, descrip, p_up, rng_up, rng_down, max_n } = req.body || {};
+  const { code, name, payout_mult, win_prob, min_bet, enabled, descrip, p_up, rng_up, rng_down, max_n, max_mult } = req.body || {};
   const c = String(code || '').trim().toLowerCase();
   const n = String(name || '').trim();
   if (!/^[a-z0-9]{2,12}$/.test(c)) return res.status(400).json({ error: 'INVALID_CODE' });
@@ -581,11 +581,11 @@ router.post('/games', (req, res) => {
   if (!Number.isInteger(mb) || mb < 1) return res.status(400).json({ error: 'INVALID_BET' });
   const en = enabled === undefined || enabled ? 1 : 0;
   const ds = String(descrip || '').slice(0, 100);
-  if (c === 'crash' || p_up !== undefined || rng_up !== undefined || rng_down !== undefined || max_n !== undefined) {
-    const v = checkCrashParams({ p_up, rng_up, rng_down, max_n }, {});
+  if (c === 'crash' || p_up !== undefined || rng_up !== undefined || rng_down !== undefined || max_n !== undefined || max_mult !== undefined) {
+    const v = checkCrashParams({ p_up, rng_up, rng_down, max_n, max_mult }, {});
     if (v.error) return res.status(400).json({ error: v.error });
-    db.prepare('INSERT INTO games (code, name, payout_mult, win_prob, min_bet, enabled, descrip, p_up, rng_up, rng_down, max_n) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-      .run(c, n, 0, 0.5, mb, en, ds, v.p_up, v.rng_up, v.rng_down, v.max_n);
+    db.prepare('INSERT INTO games (code, name, payout_mult, win_prob, min_bet, enabled, descrip, p_up, rng_up, rng_down, max_n, max_mult) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+      .run(c, n, 0, 0.5, mb, en, ds, v.p_up, v.rng_up, v.rng_down, v.max_n, v.max_mult);
   } else {
     const mult = Number(payout_mult);
     const prob = Number(win_prob);
@@ -600,23 +600,25 @@ router.post('/games', (req, res) => {
 
 // 크래시 파라미터 검증 (하우스 우위 강제: 상승기대 < 하락기대)
 function checkCrashParams(body, g) {
-  const pUp = body.p_up !== undefined ? Number(body.p_up) : (g.p_up != null ? g.p_up : 0.48);
+  const pUp = body.p_up !== undefined ? Number(body.p_up) : (g.p_up != null ? g.p_up : 0.49);
   const rUp = body.rng_up !== undefined ? Number(body.rng_up) : (g.rng_up != null ? g.rng_up : 1.0);
-  const rDown = body.rng_down !== undefined ? Number(body.rng_down) : (g.rng_down != null ? g.rng_down : 1.1);
+  const rDown = body.rng_down !== undefined ? Number(body.rng_down) : (g.rng_down != null ? g.rng_down : 1.05);
   const maxN = body.max_n !== undefined ? Math.floor(Number(body.max_n)) : (g.max_n != null ? g.max_n : 10);
+  const maxMult = body.max_mult !== undefined ? Number(body.max_mult) : (g.max_mult != null ? g.max_mult : 10);
   if (!Number.isFinite(pUp) || pUp <= 0 || pUp >= 1) return { error: 'INVALID_P_UP' };
   if (!Number.isFinite(rUp) || rUp <= 0 || rUp > 5) return { error: 'INVALID_RNG' };
   if (!Number.isFinite(rDown) || rDown <= 0 || rDown > 5) return { error: 'INVALID_RNG' };
   if (!Number.isInteger(maxN) || maxN < 1 || maxN > 20) return { error: 'INVALID_MAX_N' };
+  if (!Number.isFinite(maxMult) || maxMult < 1 || maxMult > 50) return { error: 'INVALID_MAX_MULT' };
   if (pUp * rUp >= (1 - pUp) * rDown) return { error: 'HOUSE_EDGE_REQUIRED' };
-  return { p_up: pUp, rng_up: rUp, rng_down: rDown, max_n: maxN };
+  return { p_up: pUp, rng_up: rUp, rng_down: rDown, max_n: maxN, max_mult: maxMult };
 }
 
 // PUT /api/admin/games/:code (게임 수정; crash 파라미터 포함)
 router.put('/games/:code', (req, res) => {
   const g = db.prepare('SELECT * FROM games WHERE code = ?').get(req.params.code);
   if (!g) return res.status(404).json({ error: 'NOT_FOUND' });
-  const { name, payout_mult, win_prob, min_bet, enabled, descrip, p_up, rng_up, rng_down, max_n } = req.body || {};
+  const { name, payout_mult, win_prob, min_bet, enabled, descrip, p_up, rng_up, rng_down, max_n, max_mult } = req.body || {};
   const updates = [];
   const params = [];
   let nm = g.payout_mult, pb = g.win_prob;
@@ -653,11 +655,11 @@ router.put('/games/:code', (req, res) => {
     updates.push('descrip = ?');
     params.push(String(descrip).slice(0, 100));
   }
-  if (p_up !== undefined || rng_up !== undefined || rng_down !== undefined || max_n !== undefined) {
-    const v = checkCrashParams({ p_up, rng_up, rng_down, max_n }, g);
+  if (p_up !== undefined || rng_up !== undefined || rng_down !== undefined || max_n !== undefined || max_mult !== undefined) {
+    const v = checkCrashParams({ p_up, rng_up, rng_down, max_n, max_mult }, g);
     if (v.error) return res.status(400).json({ error: v.error });
-    updates.push('p_up = ?', 'rng_up = ?', 'rng_down = ?', 'max_n = ?');
-    params.push(v.p_up, v.rng_up, v.rng_down, v.max_n);
+    updates.push('p_up = ?', 'rng_up = ?', 'rng_down = ?', 'max_n = ?', 'max_mult = ?');
+    params.push(v.p_up, v.rng_up, v.rng_down, v.max_n, v.max_mult);
   }
   if (!updates.length) return res.status(400).json({ error: 'NO_CHANGES' });
   db.prepare(`UPDATE games SET ${updates.join(', ')} WHERE code = ?`).run(...params, g.code);

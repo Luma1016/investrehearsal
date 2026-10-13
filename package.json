@@ -4,7 +4,7 @@
   "description": "Invest REhearsal MVP - Express + SQLite + Vanilla",
   "main": "src/server.js",
   "engines": {
-    "node": "20.x"
+    "node": "22.x"
   },
   "scripts": {
     "start": "node src/server.js",
